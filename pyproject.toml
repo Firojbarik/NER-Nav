@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ner-nav"
+version = "0.1.0"
+description = "AI-Based Smart Logistics and Accessibility Intelligence Platform for the North Eastern Region"
+requires-python = ">=3.12,<3.13"
+readme = "README.md"
+dependencies = [
+    "fastapi>=0.141,<0.142",
+    "uvicorn[standard]>=0.52,<0.53",
+    "sqlalchemy>=2.0,<3.0",
+    "psycopg[binary]>=3.2,<4.0",
+    "pydantic-settings>=2.0,<3.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}

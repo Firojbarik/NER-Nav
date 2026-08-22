@@ -1,0 +1,165 @@
+﻿# ============================================================
+# NER-Nav Git Ignore Rules
+# ============================================================
+
+# -------------------------
+# Environment / Secrets
+# -------------------------
+.env
+.env.*
+!.env.example
+
+# -------------------------
+# Python
+# -------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.pyre/
+.pytype/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# -------------------------
+# Jupyter
+# -------------------------
+.ipynb_checkpoints/
+
+# -------------------------
+# Node / React
+# -------------------------
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.yarn-integrity
+
+# Frontend builds
+dist/
+build/
+.vite/
+.next/
+out/
+coverage/
+
+# -------------------------
+# React Native / Expo
+# -------------------------
+.expo/
+.expo-shared/
+.metro-health-check*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# -------------------------
+# OS / IDE
+# -------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+.idea/
+*.iml
+
+# -------------------------
+# Logs / temporary files
+# -------------------------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# -------------------------
+# Local databases
+# -------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# -------------------------
+# ML generated artifacts
+# -------------------------
+ml/models/*
+!ml/models/.gitkeep
+
+ml/data/*
+!ml/data/.gitkeep
+
+# -------------------------
+# Generated project data
+# -------------------------
+data/interim/*
+!data/interim/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+# Raw datasets are intentionally NOT globally ignored.
+# Dataset-specific licensing and size rules will be handled
+# when the actual sources are selected.
+
+# -------------------------
+# Model / experiment output
+# -------------------------
+*.pkl
+*.pickle
+*.joblib
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# -------------------------
+# Secrets / certificates
+# -------------------------
+*.pem
+*.crt
+*.cer
+*.pfx
+*.p12
+*.key
+
+# -------------------------
+# Docker local overrides
+# -------------------------
+docker-compose.override.yml
+
+# -------------------------
+# Test / temporary output
+# -------------------------
+.pytest_cache/
+test-results/
+playwright-report/
+blob-report/
+
+# -------------------------
+# Generated documentation
+# -------------------------
+site/

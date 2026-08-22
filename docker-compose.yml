@@ -1,0 +1,21 @@
+﻿services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: ner-nav-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ner_nav
+      POSTGRES_USER: ner_nav
+      POSTGRES_PASSWORD: firoj1310 
+    ports:
+      - "5432:5432"
+    volumes:
+      - ner_nav_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ner_nav -d ner_nav"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ner_nav_postgres_data:
