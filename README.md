@@ -10,8 +10,6 @@
 
 NER-Nav transforms the eight-state North Eastern Region's logistics from reactive to predictive. By fusing **ML hazard prediction**, **GIS-based spatial routing**, **real-time GPS fleet tracking**, and an **offline-first mobile field-reporting app**, the platform recalculates the safest delivery routes before physical blockages are ever reported — keeping essential goods like medicines, food rations, and disaster-relief supplies moving even during monsoon season.
 
-!<img width="1536" height="1024" alt="ChatGPT Image Aug 23, 2026, 02_58_41 PM (1)" src="https://github.com/user-attachments/assets/13efbd7d-bc6e-498e-b5d2-191c44c021f7" />
-
 *Four-layer microservices architecture: Client → API Gateway → AI & Logic → Data & Persistence*
 
 ---
