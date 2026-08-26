@@ -1,0 +1,68 @@
+
+{
+  "schema_version": "1.0.0",
+  "project": "NER-Nav",
+  "purpose": "Raw hazard-event source registry",
+  "rules": {
+    "preserve_original": true,
+    "allow_unverified_sources_for_training": false,
+    "allow_fabricated_labels": false,
+    "allow_unauthorized_scraping": false
+  },
+  "sources": [
+    {
+      "source_id": "nrsc_landslide_atlas",
+      "name": "NRSC / ISRO Landslide Atlas",
+      "organization": "National Remote Sensing Centre / ISRO",
+      "category": "real_incident_data",
+      "official_url": "https://www.nrsc.gov.in/nrscnew/resources_atlas_landslide.php",
+      "status": "PENDING_LOCAL_ACQUISITION",
+      "access_method": "official_portal_or_permitted_download",
+      "automation_status": "NOT_APPROVED",
+      "license_status": "MUST_VERIFY_BEFORE_REUSE",
+      "expected_temporal_coverage": "1998-2022",
+      "expected_geometry": "geospatial landslide inventory",
+      "ner_relevance": "HIGH",
+      "local_path": null,
+      "sha256": null,
+      "acquired_at": null,
+      "notes": "Preferred first real hazard source. Do not scrape restricted services."
+    },
+    {
+      "source_id": "ndem_landslide_inventory",
+      "name": "NDEM / NRSC Seasonal Landslide Inventory",
+      "organization": "National Database for Emergency Management / NRSC",
+      "category": "real_incident_data",
+      "official_url": "https://ndem.nrsc.gov.in/geological_lsinventory.php",
+      "status": "PENDING_AUTHORIZED_ACQUISITION",
+      "access_method": "official_portal",
+      "automation_status": "DO_NOT_SCRAPE",
+      "license_status": "MUST_VERIFY_BEFORE_REUSE",
+      "expected_temporal_coverage": null,
+      "expected_geometry": "geospatial inventory",
+      "ner_relevance": "HIGH",
+      "local_path": null,
+      "sha256": null,
+      "acquired_at": null,
+      "notes": "Requires access/reuse review before automated use."
+    },
+    {
+      "source_id": "imd_rainfall",
+      "name": "India Meteorological Department rainfall data",
+      "organization": "India Meteorological Department",
+      "category": "rainfall",
+      "official_url": "https://mausam.imd.gov.in/imd_latest/contents/rainfallinformation.php",
+      "status": "PENDING_DATASET_SELECTION",
+      "access_method": "official_source",
+      "automation_status": "MUST_VERIFY",
+      "license_status": "MUST_VERIFY_BEFORE_REUSE",
+      "expected_temporal_coverage": null,
+      "expected_geometry": "district/station/region dependent",
+      "ner_relevance": "HIGH",
+      "local_path": null,
+      "sha256": null,
+      "acquired_at": null,
+      "notes": "Select a machine-readable historical product before enrichment."
+    }
+  ]
+}

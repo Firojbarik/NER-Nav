@@ -1,0 +1,69 @@
+{
+  "dataset": "NER-Nav administrative boundaries",
+  "source": {
+    "state_boundary": "C:\\Users\\ASUS\\desktop\\my-projects\\NER-Nav\\data\\raw\\admin_boundaries\\source\\91\\STATE_BOUNDARY.shp",
+    "district_boundary": "C:\\Users\\ASUS\\desktop\\my-projects\\NER-Nav\\data\\raw\\admin_boundaries\\source\\91\\DISTRICT_BOUNDARY.shp",
+    "crs_original": "Lambert Conformal Conic / WGS84",
+    "crs_output": "EPSG:4326"
+  },
+  "ner_definition": {
+    "source": "Ministry of Development of North Eastern Region",
+    "states_expected": [
+      "ARUNACHAL PRADESH",
+      "ASSAM",
+      "MANIPUR",
+      "MEGHALAYA",
+      "MIZORAM",
+      "NAGALAND",
+      "SIKKIM",
+      "TRIPURA"
+    ],
+    "state_count": 8
+  },
+  "states": {
+    "record_count": 8,
+    "geometry_types": {
+      "Polygon": 6,
+      "MultiPolygon": 2
+    },
+    "bounds": {
+      "min_lon": 88.01233168263863,
+      "min_lat": 21.94003950535511,
+      "max_lon": 97.41289651394189,
+      "max_lat": 29.465947313695867
+    },
+    "invalid_geometry_count": 0,
+    "empty_geometry_count": 0
+  },
+  "districts": {
+    "record_count": 131,
+    "geometry_types": {
+      "Polygon": 128,
+      "MultiPolygon": 3
+    },
+    "bounds": {
+      "min_lon": 88.01233168263863,
+      "min_lat": 21.94003950535511,
+      "max_lon": 97.41289651394189,
+      "max_lat": 29.465947313695867
+    },
+    "invalid_geometry_count": 0,
+    "empty_geometry_count": 0,
+    "districts_by_state": {
+      "ARUNACHAL PRADESH": 27,
+      "ASSAM": 35,
+      "MANIPUR": 16,
+      "MEGHALAYA": 12,
+      "MIZORAM": 11,
+      "NAGALAND": 16,
+      "SIKKIM": 6,
+      "TRIPURA": 8
+    }
+  },
+  "outputs": {
+    "states": "C:\\Users\\ASUS\\desktop\\my-projects\\NER-Nav\\data\\processed\\admin_boundaries\\ner_states.gpkg",
+    "districts": "C:\\Users\\ASUS\\desktop\\my-projects\\NER-Nav\\data\\processed\\admin_boundaries\\ner_districts.gpkg",
+    "qa_report": "C:\\Users\\ASUS\\desktop\\my-projects\\NER-Nav\\reports\\admin_boundary_qa.json"
+  },
+  "status": "PASS"
+}
