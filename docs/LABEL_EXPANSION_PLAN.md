@@ -80,3 +80,26 @@ python scripts/add_confirmed_event.py \
 ```bash
 python scripts/rebuild_pipeline.py
 ```
+
+## Seasonal / monsoon feature experiment (2026-08-28)
+Added leakage-safe seasonal/monsoon features derived ONLY from the real
+prediction timestamp (known exactly at decision time; identical at training
+build and inference): `month`, `seasonal_sin`, `seasonal_cos`,
+`monsoon_active`, `days_into_monsoon` (`ml/features/seasonal.py`). Threaded
+through `build_real_temporal_dataset.py`, `train_production_risk_model.py`,
+and `predict_real_temporal.py`, with unit tests.
+
+**Result (honest): the stable generalization estimate did NOT improve.**
+With 21 features (16 prior + 5 seasonal), grouped expanding-window CV pooled
+ROC-AUC = **0.536** (min 0.067 / max 0.933), vs 0.563 before — a within-noise
+change, and single-split test ROC-AUC moved 0.569 -> 0.585. Diagnosis: within
+the current data, positives and their corridor negatives are sampled at the
+SAME prediction date, so season/monsoon features are identical inside each
+sample group and add essentially no local separation; and real NER events are
+already so monsoon-concentrated that the features carry limited cross-group
+rank signal. The finding strengthens the existing conclusion in
+docs/ML_PRODUCTION_READINESS_REPORT.md: the bottleneck is event/sample count
+and corridor diversity, not missing features. The features are retained (they
+are physically motivated, leakage-safe, and part of the immutable 21-feature
+schema) but they are not expected to move the gate alone.
+

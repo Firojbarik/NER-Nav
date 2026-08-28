@@ -19,6 +19,14 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
+from ml.features.seasonal import (  # noqa: E402
+    days_into_monsoon,
+    monsoon_active,
+    month_feature,
+    seasonal_cos,
+    seasonal_sin,
+)
+
 MODEL_DIR = Path("data/models")
 REQUIRED_RAINFALL = [
     "rainfall_1day", "rainfall_3day", "rainfall_7day",
@@ -156,14 +164,25 @@ def validate_and_prepare(values, features, prediction_timestamp,
         "elev_x_slope": elevation_value * slope_value,
     })
 
-    missing_frozen = [name for name in features if name not in prepared]
-    if missing_frozen:
-        raise ValueError(f"cannot derive frozen features: {missing_frozen}")
-
     prediction_time = _parse_timestamp(prediction_timestamp, "prediction_timestamp")
     now = pd.Timestamp.now(tz="UTC")
     if prediction_time > now + pd.Timedelta(minutes=5):
         raise ValueError("prediction_timestamp cannot be in the future")
+
+    # Leakage-safe seasonal / monsoon features derived ONLY from the (already
+    # validated, non-future) prediction timestamp - identical to training build.
+    _anchor_date = prediction_time.date()
+    prepared.update({
+        "month": float(month_feature(_anchor_date)),
+        "seasonal_sin": seasonal_sin(_anchor_date),
+        "seasonal_cos": seasonal_cos(_anchor_date),
+        "monsoon_active": float(monsoon_active(_anchor_date)),
+        "days_into_monsoon": float(days_into_monsoon(_anchor_date)),
+    })
+
+    missing_frozen = [name for name in features if name not in prepared]
+    if missing_frozen:
+        raise ValueError(f"cannot derive frozen features: {missing_frozen}")
 
     freshness = {"status": "MISSING_METADATA", "age_hours": None}
     flags = []

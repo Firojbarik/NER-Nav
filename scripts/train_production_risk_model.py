@@ -36,8 +36,12 @@ FEATURES = ["rainfall_1day", "rainfall_3day", "rainfall_7day", "rainfall_14day",
             "rain_intensity_1_vs_7", "rain_intensity_3_vs_14",
             "rain_concentration_3_in_7", "rain_trend_1_vs_3",
             "rain_cumul_ratio_7_vs_30", "terrain_known",
-            "slope_x_rain7", "slope_x_rain30", "elev_x_slope"]
-NUMERIC = [c for c in FEATURES if c != "terrain_known"]
+            "slope_x_rain7", "slope_x_rain30", "elev_x_slope",
+            # Leakage-safe seasonal / monsoon features derived from the real
+            # prediction timestamp at both training build and inference time.
+            "month", "seasonal_sin", "seasonal_cos", "monsoon_active",
+            "days_into_monsoon"]
+NUMERIC = [c for c in FEATURES if c not in ("terrain_known",)]
 
 HYPERPARAMS = dict(n_estimators=100, max_depth=2, learning_rate=0.1,
                    subsample=0.8, colsample_bytree=0.8,

@@ -45,6 +45,23 @@ class TestProductionInference(unittest.TestCase):
         self.assertEqual(prepared["terrain_known"], 1)
         self.assertEqual(quality["weather_freshness"]["status"], "FRESH")
 
+    def test_seasonal_features_are_derived_from_prediction_time(self):
+        # A monsoon-season date (Jul 15) must be flagged by monsoon features.
+        values = self.valid_values()
+        prepared, _ = self.inference.validate_and_prepare(
+            values, self.training.FEATURES, "2026-07-15T12:00:00+05:30")
+        self.assertEqual(prepared["monsoon_active"], 1)
+        self.assertEqual(prepared["month"], 7)
+        self.assertGreater(prepared["days_into_monsoon"], 0)
+
+    def test_winter_date_seasonal_features(self):
+        values = self.valid_values()
+        prepared, _ = self.inference.validate_and_prepare(
+            values, self.training.FEATURES, "2026-01-15T12:00:00+05:30")
+        self.assertEqual(prepared["monsoon_active"], 0)
+        self.assertEqual(prepared["month"], 1)
+        self.assertLess(prepared["days_into_monsoon"], 0)
+
     def test_negative_rainfall_is_rejected(self):
         values = self.valid_values()
         values["rainfall_7day"] = -1

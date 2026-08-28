@@ -46,6 +46,16 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ml.features.seasonal import (  # noqa: E402
+    SEASONAL_FEATURES,
+    days_into_monsoon,
+    monsoon_active,
+    month_feature,
+    pre_monsoon_active,
+    season,
+    seasonal_cos,
+    seasonal_sin,
+)
 from ml.features.temporal_design import (  # noqa: E402
     CONFIRMED_EVENTS,
     NEGATIVES_PER_REF,
@@ -193,6 +203,20 @@ def main() -> None:
     ds["highway_prior"] = ds["highway"].map(highway_score)
     ds["bridge_flag"] = (ds["bridge"].fillna("").astype(str).str.lower() != "no").astype(int)
 
+    # Leakage-safe seasonal / monsoon features derived ONLY from the real
+    # prediction timestamp (known exactly at decision time). No target or
+    # future information is used; seasonality is genuine prior knowledge
+    # for NER hazard risk (monsoon concentration) and is computed identically
+    # at inference time from the prediction timestamp.
+    _dates = [d.date() for d in ds["prediction_time"]]
+    ds["season"] = [season(d) for d in _dates]
+    ds["month"] = [month_feature(d) for d in _dates]
+    ds["seasonal_sin"] = [seasonal_sin(d) for d in _dates]
+    ds["seasonal_cos"] = [seasonal_cos(d) for d in _dates]
+    ds["monsoon_active"] = [monsoon_active(d) for d in _dates]
+    ds["pre_monsoon"] = [pre_monsoon_active(d) for d in _dates]
+    ds["days_into_monsoon"] = [days_into_monsoon(d) for d in _dates]
+
     # Derived rainfall intensity features — no new data, just ratios.
     # These capture whether current rain is unusually concentrated/intense
     # for this road, which is more predictive than raw amounts.
@@ -226,10 +250,11 @@ def main() -> None:
         "prediction_time", "label", "sample_kind", "label_source",
         "elevation_m", "slope_degrees",
     ] + RAINFALL_COLS + ["rainfall_days_available", "highway_prior", "bridge_flag",
-                          "rain_intensity_1_vs_7", "rain_intensity_3_vs_14",
-                          "rain_concentration_3_in_7", "rain_trend_1_vs_3",
-                          "rain_cumul_ratio_7_vs_30", "terrain_known",
-                          "slope_x_rain7", "slope_x_rain30", "elev_x_slope"]
+        "rain_intensity_1_vs_7", "rain_intensity_3_vs_14",
+        "rain_concentration_3_in_7", "rain_trend_1_vs_3",
+        "rain_cumul_ratio_7_vs_30", "terrain_known",
+        "slope_x_rain7", "slope_x_rain30", "elev_x_slope",
+    ] + SEASONAL_FEATURES
     ds = ds[feature_cols].copy()
     validation = validate_dataset(ds)
 

@@ -38,6 +38,8 @@ FEATURES = [
     "rain_concentration_3_in_7", "rain_trend_1_vs_3",
     "rain_cumul_ratio_7_vs_30", "terrain_known",
     "slope_x_rain7", "slope_x_rain30", "elev_x_slope",
+    "month", "seasonal_sin", "seasonal_cos", "monsoon_active",
+    "days_into_monsoon",
 ]
 
 
@@ -101,7 +103,20 @@ def _build_synthetic_dataset(seed=42):
                 "slope_x_rain30": slope * r30,
                 "elev_x_slope": elev * slope,
             })
-    return pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
+    from datetime import datetime, timezone
+    from ml.features.seasonal import (
+        days_into_monsoon, monsoon_active, month_feature,
+        seasonal_cos, seasonal_sin,
+    )
+    dates = [datetime.fromtimestamp(ts / 1e9, timezone.utc).date()
+             for ts in frame["prediction_time"].astype("int64") / 1e9]
+    frame["month"] = [float(month_feature(d)) for d in dates]
+    frame["seasonal_sin"] = [seasonal_sin(d) for d in dates]
+    frame["seasonal_cos"] = [seasonal_cos(d) for d in dates]
+    frame["monsoon_active"] = [float(monsoon_active(d)) for d in dates]
+    frame["days_into_monsoon"] = [float(days_into_monsoon(d)) for d in dates]
+    return frame
 
 
 class TestFullPipeline(unittest.TestCase):

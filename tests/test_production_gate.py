@@ -97,7 +97,22 @@ def build_synthetic(seed=0, n_events_train=10, n_events_val=3, n_events_test=4,
                 "slope_x_rain30": slope * r30,
                 "elev_x_slope": elev * slope,
             })
-    return pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
+    # Seasonal/monsoon features derived from the (synthetic) prediction time,
+    # matching the training-feature contract. Synthetic/test only.
+    from datetime import datetime, timezone
+    from ml.features.seasonal import (
+        days_into_monsoon, monsoon_active, month_feature,
+        seasonal_cos, seasonal_sin,
+    )
+    dates = [datetime.fromtimestamp(ts / 1e9, timezone.utc).date()
+             for ts in frame["prediction_time"].astype("int64") / 1e9]
+    frame["month"] = [float(month_feature(d)) for d in dates]
+    frame["seasonal_sin"] = [seasonal_sin(d) for d in dates]
+    frame["seasonal_cos"] = [seasonal_cos(d) for d in dates]
+    frame["monsoon_active"] = [float(monsoon_active(d)) for d in dates]
+    frame["days_into_monsoon"] = [float(days_into_monsoon(d)) for d in dates]
+    return frame
 
 
 def run_pipeline(m, ds):
