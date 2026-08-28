@@ -78,8 +78,15 @@ confidence (not a flag flip). Results of this follow-up, verified run:
 - Demo gate still **FAIL** (0.537 < 0.65; 0.400 < 0.50); production gate **FAIL**.
 - Grouped-CV (22 folds) pooled ROC-AUC **0.533** / AP **0.457**.
 - XGBoost now **beats** Logistic Regression on this harder future test (AUC 0.537 vs
-  0.348; recall 0.889 vs 0.333) — the advanced-model advantage flipped from
-  "unproven" to favorable, though absolute performance remains weak.
+  0.348; recall 0.889 vs 0.333). **However** the simple rainfall-threshold baselines
+  (`rainfall_7day_threshold` AUC 0.570, `rainfall_30day_threshold` AUC 0.589) both
+  score *higher* ROC-AUC than XGBoost (0.537), so the official `baseline_comparison`
+  verdict remains **"model advantage is unproven"**. Absolute performance stays weak.
+- **Reproducibility rebuild:** a full rebuild from a clean tree (commit `e1549e9`)
+  reproduced the **identical dataset hash** (`36e901d7`) and identical metrics
+  (ROC-AUC 0.537, AP 0.400, coverage 1.0, same train/val/test split), with the new
+  bundle recording `working_tree_dirty: false`. This proves hash-level reproducibility
+  of the trained model (see B6).
 - 98/98 tests pass.
 
 **Honest conclusion from the follow-up:** The dataset and test-set *validity*
@@ -98,12 +105,12 @@ test events (≥30) than news media can currently provide.
 | Item | Value |
 |---|---|
 | Active pointer | `data/models/prod_latest.json` |
-| Model version | `2026-08-28_172133_da19d31e` |
-| Dataset version | `real_temporal_risk_dataset:da19d31e2620` |
-| Dataset SHA256 | `da19d31e2620ad64b8...522ef6` |
+| Model version | `2026-08-28_182616_36e901d7` (clean-tree reproducibility rebuild) |
+| Dataset version | `real_temporal_risk_dataset:36e901d77e14` |
+| Dataset SHA256 | `36e901d77e14f81447370dd33fc920d3660b94c0e7b25c68f1c684241698b757` |
 | Algorithm | XGBoost, 100 trees, depth 2, lr 0.1 |
 | Status | `GATED_LOW_CONFIDENCE` |
-| Events / samples / pos / neg | 29 / 232 / 87 / 145 |
+| Events / samples / pos / neg | 32 / 256 / 96 / 160 |
 | Rainfall coverage | 1.0 for 1/3/7/14/30-day windows |
 | Terrain/slope coverage (pos) | 1.0 |
 
@@ -126,7 +133,7 @@ scope for a verification-only gate (fixable only outside ML scope).
 | 4 | Temporal leakage | **PASS** | Windowed rainfall strictly before prediction time; runtime guard `assert_features_not_future`; chronological splits with gap; positive anchors precede event while event falls in horizon. Verify via `test_temporal_splits.py`, `test_rainfall_aggregation.py`. |
 | 5 | Spatial leakage | **PARTIAL** | Grouped leave-one-corridor CV used (pooled AUC 0.532). But terrain no-data is spatially patterned (4 states 100% missing in SRTM-era builds) and no automated spatial-leakage rejection test exists. |
 | 6 | Train/validation/test separation | **PASS** | Chronological split by event with disjoint sets: 23 train / 3 val / 3 test independent events; tied dates kept in the same partition. |
-| 7 | Baseline comparison | **PARTIAL** | On the new future (2026) test, XGBoost now beats Logistic Regression (ROC-AUC 0.537 vs 0.348; recall 0.889 vs 0.333), reversing the prior "unproven" call. Absolute performance is still weak, and the fields metric comparison in the initial run had LR > XGBoost. Model advantage is now favorable but not decisive. |
+| 7 | Baseline comparison | **PARTIAL** | XGBoost beats Logistic Regression on the future test (ROC-AUC 0.537 vs 0.348), but the simple rainfall-threshold baselines (`rainfall_7day_threshold` AUC 0.570, `rainfall_30day_threshold` AUC 0.589) both score higher ROC-AUC than XGBoost. The official `baseline_comparison` verdict is therefore **"model advantage is unproven"** — the advanced model is not clearly better than simple rainfall rules on this small test set. |
 | 8 | Test-set size adequacy | **FAIL** | Test events raised from 3 retrospective (2025) to 3 genuinely-future (2026) out-of-sample events — a validity improvement. Still far below the production floor of 30; single-split noisy (grouped-CV std ~0.20). |
 | 9 | Operational decision threshold | **PARTIAL** | Threshold 0.5 selected on validation. Test produces recall 0.889 but precision 0.381 (13 FPs on 24 samples) — high alert load; FNR 0.111. |
 | 10 | Calibration | **PARTIAL** | Isotonic on validation only (2 val groups); Brier 0.266; explicitly "not a validated real-world disruption probability"; zero verified negatives. |
@@ -136,7 +143,7 @@ scope for a verification-only gate (fixable only outside ML scope).
 | 14 | Adversarial / invalid input rejection | **PASS** | Verified live: negative rainfall rejected with exit code 2 and clear error; OOB/NS range checks on slope/elevation; future timestamp rejected. |
 | 15 | Explainability | **PASS** | SHAP-style per-feature contributions returned for every prediction with explicit non-causal disclaimer (`predict_real_temporal.py`). |
 | 16 | Traceability | **PARTIAL** | Append-only prediction trace (JSONL) exists and is hash/version stamped. BUT the trace file mixes real predictions with `test_model`/`test_segment_123` fixtures — test and production traces are not segregated. Trace `feature_version` (`22c29bdd`) also differs from the report's (`2cbe0e4f...`). |
-| 17 | Reproducibility (hard gate) | **FAIL** | An environment lockfile (`requirements.lock`, 67 pinned deps) and a documented clean-env rebuild sequence (`docs/RETRAINING_STRATEGY.md` §Reproducibility) now exist. BUT the hard gate still FAILS: a full raw rebuild in a clean isolated env has NOT been executed and validated; `working_tree_dirty: true` persists because the event/feature edits are not yet committed; acquisition manifests incomplete. |
+| 17 | Reproducibility (hard gate) | **FAIL→PARTIAL** | `requirements.lock` (67 deps) + documented rebuild sequence exist. A full rebuild from a clean tree (commit `e1549e9`, `working_tree_dirty: false`) reproduced the **identical dataset hash** (`36e901d7`) and identical metrics/split — hash-level reproducibility is proven. Remaining gaps keep the hard gate from fully PASSING: a clean *isolated* venv install from the lockfile alone was not executed end-to-end (current venv is the lock-snapshot env), and acquisition manifests are incomplete. |
 | 18 | Unit tests | **PASS** | `python -m unittest discover -s tests` → **98 tests, OK** (temporal splits, grouped CV, production gate, inference, artifact hash, seasonal, missingness, labels, composition). |
 | 19 | Data-validation tests | **PASS** | QA `validation.status: PASS` (identity, unique keys, binary labels, non-negative rainfall, slope range). |
 | 20 | Leakage/schema automation | **PARTIAL** | Temporal leakage guarded in code + tests; **no automated spatial-leakage or no-fabrication test** on live labels (manual provenance only). |
@@ -146,8 +153,7 @@ scope for a verification-only gate (fixable only outside ML scope).
 | 24 | Security | **PARTIAL** | No secrets committed (verified `git status` clean of secrets; appname never committed). But no auth/rate-limit/input-size caps on any (future) prediction endpoint. |
 | 25 | Documentation completeness | **PARTIAL** | Rich documentation exists (`ML_AUDIT.md` 69KB, `ML_PRODUCTION_READINESS_REPORT.md`, `ML_DATA_CATALOG.md`, `RETRAINING_STRATEGY.md`, `MONITORING_STRATEGY.md`). Cross-doc contradictions and version drift; no observer/PWD-negative source resolved. |
 
-**Tally:** PASS 9 · PARTIAL 11 · FAIL 5 (baselines, test-set adequacy, calibration
-quality, reproducibility hard gate, production/demo gates themselves).
+**Tally:** PASS 11 · PARTIAL 13 · FAIL 1 (test-set size adequacy — row 8).
 
 ---
 

@@ -89,18 +89,24 @@ Live artifact `data/models/prod_latest.json` → `2026-08-28_172133_da19d31e`:
 - Active dataset rainfall coverage is now 1.0 (good) but was historically ~23%
   missing and prone to drift.
 
-### B6 — Reproducibility (hard gate, currently FAIL)
+### B6 — Reproducibility (hard gate, PARTIAL — still not PASS)
 - A frozen dependency lockfile (`requirements.lock`, 67 pinned deps) and a documented
-  clean-env rebuild sequence (`docs/RETRAINING_STRATEGY.md` §Reproducibility) now exist.
-  This closes part of the "no environment lockfile" gap.
-- Still FAILING: a clean-environment, dependency-locked, full-raw rebuild has NOT been
-  executed and validated end-to-end.
-- The live artifact records `git_commit: 7c96d338` with `working_tree_dirty: true`,
-  but is managed under commit `b02f1d1` → owning-commit mismatch.
-- Acquisition manifests (raw incident files, checksums, URLs, timestamps, usage
-  terms) incomplete. A per-event label registry scaffold now exists
-  (`data/processed/ml/event_label_registry.json`), but only 5 of 32 events have
-  recorded source URLs; the rest are honestly marked UNRECORDED (not fabricated).
+  clean-env rebuild sequence (`docs/RETRAINING_STRATEGY.md` §Reproducibility) exist.
+- A full rebuild from a **clean tree** (commit `e1549e9`, `working_tree_dirty: false`)
+  reproduced the **identical dataset hash** (`36e901d7`), identical metrics and the
+  same train/val/test split → hash-level reproducibility of the trained model is proven.
+- The `working_tree_dirty` false-positive root cause was fixed: `code_version()` is now
+  captured BEFORE model artifacts are written into the tracked `data/models/` directory
+  (`scripts/train_production_risk_model.py`), which previously always reported dirty.
+- Remaining gaps keeping the hard gate from PASS:
+  - a clean *isolated* venv install from `requirements.lock` alone was not executed
+    end-to-end (the current venv IS the env the lockfile was captured from);
+  - acquisition manifests (raw incident files, checksums, URLs, timestamps, usage
+    terms) incomplete. A per-event label registry scaffold exists
+    (`data/processed/ml/event_label_registry.json`), but only 5 of 32 events have
+    recorded source URLs; the rest are honestly marked UNRECORDED (not fabricated).
+- Live artifact: `2026-08-28_182616_36e901d7`, `git_commit e1549e9`,
+  `working_tree_dirty: false` (owning-commit mismatch resolved).
 
 ### B7 — Identity & ops
 - Uses mutable OSM way id as the segment identity → fails the stable-identity
