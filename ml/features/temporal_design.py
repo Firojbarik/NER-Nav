@@ -25,6 +25,7 @@ CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
     ("manipur_nungdolan_nh37_2021_06_13", 242395881, "NH37", "2021-06-13"),
     ("meghalaya_sonapur_2022_09_06", 666960671, "NH6", "2022-09-06"),
     ("sikkim_nh10_singtam_2023_10_04", 83700092, "NH510", "2023-10-04"),
+    ("arunachal_sela_pass_nh13_2024_02_03", 1260641175, "NH13", "2024-02-03"),
     ("assam_harangajao_2024_05_28", 1053899051, "NH27", "2024-05-28"),
     ("mizoram_hunthar_2024_05_28", 1058852502, "NH6", "2024-05-28"),
     ("manipur_irang_2024_05_29", 44884963, "NH37", "2024-05-29"),
