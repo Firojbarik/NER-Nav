@@ -1,0 +1,89 @@
+{
+  "name": "ner_real_temporal_road_disruption",
+  "version": "2026-08-28_205118_f8841bdc",
+  "dataset_version": "real_temporal_risk_dataset:f8841bdc30b0",
+  "feature_version": "2cbe0e4fc357e4c87aa4b63bd4c02118a430a0b2c287de41b08e41f2548a64fe",
+  "input_manifest": "data\\processed\\ml\\ml_input_manifest.json",
+  "input_manifest_sha256": "b9b06aedabe8071399e7e3d552b360c5d565278407812e164c37c3e992bd715b",
+  "status": "GATED_LOW_CONFIDENCE",
+  "intended_use": "Hackathon demonstration and offline research only",
+  "not_for": "Production routing, emergency response, or public safety decisions",
+  "caveat": "Limited-confidence demo model trained/evaluated from 120 samples across 56 events (96 positives, 24 negatives). Only 9 future events are in the held-out test split; negative labels are source-backed road-status observations, not a substitute for dense segment-level monitoring. This is not production-safe.",
+  "demo_gate": {
+    "passed": false,
+    "requirements": {
+      "minimum_test_events": 3,
+      "minimum_roc_auc": 0.65,
+      "minimum_avg_precision": 0.5
+    },
+    "reasons": [
+      "test ROC-AUC 0.5666666666666667 < 0.65"
+    ],
+    "status": "DEMO_GATE_FAILED"
+  },
+  "production_gate": {
+    "passed": false,
+    "requirements": {
+      "minimum_test_events": 30,
+      "minimum_recall": 0.7,
+      "minimum_roc_auc": 0.75,
+      "minimum_avg_precision": 0.6
+    },
+    "reasons": [
+      "test events 9 < 30",
+      "test ROC-AUC 0.5666666666666667 < 0.75"
+    ],
+    "status": "NOT_PRODUCTION_READY"
+  },
+  "test_metrics": {
+    "n": 19,
+    "n_pos": 15,
+    "roc_auc": 0.5666666666666667,
+    "avg_precision": 0.8307533539731682,
+    "precision": 0.7647058823529411,
+    "recall": 0.8666666666666667,
+    "f1": 0.8125,
+    "false_negatives": 2,
+    "false_positives": 4,
+    "false_negative_rate": 0.13333333333333333,
+    "confusion_matrix": [
+      [
+        0,
+        4
+      ],
+      [
+        2,
+        13
+      ]
+    ],
+    "threshold": 0.8461538553237915,
+    "brier_score": 0.2672064796633084,
+    "recall_at_top_k": {
+      "top_10pct": {
+        "n_selected": 2,
+        "positives_found": 2,
+        "recall": 0.13333333333333333
+      },
+      "top_25pct": {
+        "n_selected": 5,
+        "positives_found": 5,
+        "recall": 0.3333333333333333
+      }
+    }
+  },
+  "baseline_comparison": {
+    "beats_all_comparable_baselines_on_roc_auc_and_avg_precision": false,
+    "baselines_beaten_on_both": [
+      "majority_no_disruption"
+    ],
+    "statement": "XGBoost does not beat every comparable baseline on both ROC-AUC and average precision; model advantage is unproven."
+  },
+  "calibration": {
+    "method": "isotonic_on_validation",
+    "optional": true,
+    "calibrator_fitted": true,
+    "note": "Calibration is optional and fit only on validation data; the current validation set is very small.",
+    "calibrator_file": "data\\models\\prod_real_temporal_2026-08-28_205118_f8841bdc_calib.json",
+    "calibrator_sha256": "e396d34bc88b195c4b5ee1bdbed40a0d9aea841a229f3297459edb55c5789c6e"
+  }
+}

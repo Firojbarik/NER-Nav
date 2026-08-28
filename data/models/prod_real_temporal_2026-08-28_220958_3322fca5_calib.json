@@ -1,0 +1,12 @@
+{
+  "format": "isotonic_thresholds_v1",
+  "x_thresholds": [
+    0.0,
+    1.0
+  ],
+  "y_thresholds": [
+    0.8181818127632141,
+    0.8181818127632141
+  ],
+  "out_of_bounds": "clip"
+}

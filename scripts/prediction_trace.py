@@ -30,15 +30,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TRACE_DIR = PROJECT_ROOT / "data" / "predictions" / "traces"
 TRACE_DIR.mkdir(parents=True, exist_ok=True)
 
+# The legacy files are retained as an immutable audit archive. New writes are
+# stream-separated so unit/demo fixtures cannot contaminate production traces.
 TRACE_FILE = TRACE_DIR / "prediction_traces.parquet"
 TRACE_FILE_JSONL = TRACE_DIR / "prediction_traces.jsonl"
+STREAM_FILES = {
+    "production": (TRACE_DIR / "production_prediction_traces.parquet",
+                    TRACE_DIR / "production_prediction_traces.jsonl"),
+    "test": (TRACE_DIR / "test_prediction_traces.parquet",
+             TRACE_DIR / "test_prediction_traces.jsonl"),
+}
 
 
 def _feature_version_hash(features: dict[str, Any]) -> str:
-    """Compute a simple hash of the feature schema for versioning."""
+    """Compute the same feature-schema version used by model training."""
     import hashlib
-    schema = sorted(features.keys())
-    return hashlib.md5("|".join(schema).encode()).hexdigest()[:8]
+    schema = json.dumps(list(features.keys()), separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(schema.encode("ascii")).hexdigest()
 
 
 def log_prediction(
@@ -58,6 +66,8 @@ def log_prediction(
     risk_policy_version: str | None = None,
     operating_decision: str | None = None,
     data_quality: dict[str, Any] | None = None,
+    trace_stream: str = "test",
+    input_references: dict[str, Any] | None = None,
 ) -> str:
     """
     Log a prediction with full traceability.
@@ -65,17 +75,22 @@ def log_prediction(
     Returns:
         prediction_id: unique identifier for this prediction
     """
+    if trace_stream not in STREAM_FILES:
+        raise ValueError(f"unknown trace_stream: {trace_stream}")
     prediction_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     feat_version = _feature_version_hash(features)
 
     trace = {
         "prediction_id": prediction_id,
+        "record_type": "PREDICTION",
+        "trace_stream": trace_stream,
         "road_segment_id": road_segment_id,
         "ref": ref,
         "state": state,
         "district": district,
         "prediction_timestamp": prediction_timestamp,
+        "prediction_horizon_days": 7,
         "model_version": model_tag,
         "dataset_version": dataset_version,
         "feature_version": feat_version,
@@ -87,6 +102,7 @@ def log_prediction(
         "risk_policy_version": risk_policy_version,
         "operating_decision": operating_decision,
         "data_quality": json.dumps(data_quality or {}, sort_keys=True),
+        "input_references": json.dumps(input_references or {}, sort_keys=True),
         "threshold": threshold,
         "top_contributing_factors": json.dumps(top_contributing_factors, sort_keys=True),
         "inference_timestamp": now,
@@ -94,25 +110,26 @@ def log_prediction(
 
     # Append to JSONL (always works, append-only)
     trace_jsonl = {k: v for k, v in trace.items()}
-    with open(TRACE_FILE_JSONL, "a", encoding="utf-8") as f:
+    trace_file, trace_file_jsonl = STREAM_FILES[trace_stream]
+    with open(trace_file_jsonl, "a", encoding="utf-8") as f:
         f.write(json.dumps(trace_jsonl, ensure_ascii=False) + "\n")
 
     # Also append to Parquet (periodic batch)
-    _append_to_parquet(trace)
+    _append_to_parquet(trace, trace_file)
 
     return prediction_id
 
 
-def _append_to_parquet(trace: dict[str, Any]) -> None:
+def _append_to_parquet(trace: dict[str, Any], trace_file: Path) -> None:
     """Append trace to Parquet file (batch writes for efficiency)."""
     df = pd.DataFrame([trace])
     try:
-        if TRACE_FILE.exists():
-            existing = pd.read_parquet(TRACE_FILE)
+        if trace_file.exists():
+            existing = pd.read_parquet(trace_file)
             combined = pd.concat([existing, df], ignore_index=True)
         else:
             combined = df
-        combined.to_parquet(TRACE_FILE, index=False)
+        combined.to_parquet(trace_file, index=False)
     except Exception:
         # Parquet append failed; JSONL is the source of truth
         pass
@@ -123,16 +140,22 @@ def get_prediction_traces(
     end_date: str | None = None,
     model_version: str | None = None,
     risk_level: str | None = None,
+    trace_stream: str | None = None,
 ) -> pd.DataFrame:
     """Query prediction traces with optional filters."""
-    if not TRACE_FILE.exists() and not TRACE_FILE_JSONL.exists():
+    streams = [trace_stream] if trace_stream else list(STREAM_FILES)
+    frames = []
+    for stream in streams:
+        if stream not in STREAM_FILES:
+            raise ValueError(f"unknown trace_stream: {stream}")
+        parquet, jsonl = STREAM_FILES[stream]
+        if parquet.exists():
+            frames.append(pd.read_parquet(parquet))
+        elif jsonl.exists():
+            frames.append(pd.read_json(jsonl, lines=True))
+    if not frames:
         return pd.DataFrame()
-
-    # Prefer Parquet, fallback to JSONL
-    if TRACE_FILE.exists():
-        df = pd.read_parquet(TRACE_FILE)
-    else:
-        df = pd.read_json(TRACE_FILE_JSONL, lines=True)
+    df = pd.concat(frames, ignore_index=True)
 
     if start_date:
         df = df[df["inference_timestamp"] >= start_date]
@@ -180,6 +203,7 @@ if __name__ == "__main__":
         threshold=0.48,
         ref="NH37",
         state="MANIPUR",
+        trace_stream="test",
     )
     print(f"Logged prediction: {pred_id}")
     print(f"Summary: {get_trace_summary()}")

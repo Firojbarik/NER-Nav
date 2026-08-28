@@ -149,6 +149,23 @@ def run_pipeline(m, ds):
 
 
 class TestProductionGate(unittest.TestCase):
+    def test_default_real_test_split_has_two_classes(self):
+        m = _import_harness()
+        dataset = REPO / "data/processed/ml/real_temporal_risk_dataset.parquet"
+        if not dataset.exists():
+            self.skipTest("real temporal dataset absent")
+        ds = pd.read_parquet(dataset)
+        _, val, test = m.split_by_events(ds)
+        self.assertEqual(set(val["label"].unique()), {0, 1})
+        self.assertEqual(set(test["label"].unique()), {0, 1})
+        self.assertIsNotNone(m._safe_auc(test["label"], np.zeros(len(test))))
+
+    def test_single_class_test_split_is_rejected(self):
+        m = _import_harness()
+        test = pd.DataFrame({"label": [1, 1, 1]})
+        with self.assertRaises(ValueError):
+            m.require_two_class_test_split(test)
+
     def test_split_is_chronological_and_event_intact(self):
         m = _import_harness()
         ds = build_synthetic(strong=True)
@@ -187,6 +204,27 @@ class TestProductionGate(unittest.TestCase):
         recall = (pred & (y == 1)).sum() / (y == 1).sum()
         self.assertGreaterEqual(recall, 2 / 3)
         self.assertEqual(details["strategy"], "target_recall_met_max_precision")
+
+    def test_threshold_selection_respects_validation_alert_budget(self):
+        m = _import_harness()
+        y = np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0])
+        scores = np.array([0.95, 0.80, 0.70, 0.90, 0.60,
+                           0.50, 0.40, 0.30, 0.20, 0.10])
+        threshold, details = m.select_recall_threshold(
+            y, scores, target_recall=0.70, precision_floor=0.30,
+            max_alert_rate=0.30)
+        self.assertLessEqual((scores >= threshold).mean(), 0.30)
+        self.assertEqual(details["max_alert_rate"], 0.30)
+        self.assertIn("alert_budget", details["strategy"])
+
+    def test_top_k_threshold_is_label_free_and_budgeted(self):
+        m = _import_harness()
+        scores = np.array([0.95, 0.80, 0.70, 0.60, 0.50, 0.40,
+                           0.30, 0.20, 0.10, 0.05])
+        threshold, details = m.select_top_k_threshold(scores, 0.30)
+        self.assertEqual(details["strategy"], "top_k_validation_only")
+        self.assertEqual(details["validation_selected"], 3)
+        self.assertLessEqual((scores >= threshold).mean(), 0.30)
 
     def test_caveat_uses_dataframe_counts(self):
         m = _import_harness()

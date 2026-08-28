@@ -234,6 +234,7 @@ class TestFullPipeline(unittest.TestCase):
                 threshold=0.5,
                 ref="NH37",
                 state="TEST",
+                trace_stream="test",
             )
             self.assertIsInstance(pred_id, str)
             self.assertEqual(len(pred_id), 36)  # UUID length
@@ -246,6 +247,8 @@ class TestFullPipeline(unittest.TestCase):
             self.assertEqual(trace["model_version"], "test_model")
             self.assertEqual(trace["risk_level"], rl)
             self.assertEqual(trace["calibrated_probability"], cal_prob)
+            self.assertEqual(trace["trace_stream"], "test")
+            self.assertEqual(trace["record_type"], "PREDICTION")
 
 
 class TestTemporalLeakage(unittest.TestCase):

@@ -40,6 +40,12 @@ def main() -> int:
     skip_download = "--skip-download" in sys.argv
     skip_tests = "--skip-tests" in sys.argv
 
+    # Run the fail-closed provenance/label gate before downloads or generated
+    # outputs.  A failed gate is a data gap and must not leave partial rebuild
+    # artifacts behind.
+    run([PYTHON, str(REPO / "scripts" / "validate_training_inputs.py")],
+        "Validate source provenance and training labels")
+
     if not skip_download:
         run([PYTHON, str(REPO / "scripts" / "download_chirps_dates.py")],
             "Download CHIRPS rasters for all needed dates")
@@ -65,6 +71,9 @@ def main() -> int:
              str(REPO / "data" / "processed" / "weather" /
                  "road_rainfall_features_temporal.parquet")],
             f"Extract rainfall features for {len(dates)} prediction dates")
+
+    run([PYTHON, str(REPO / "scripts" / "create_ml_input_manifest.py")],
+        "Create deterministic ML input checksum manifest")
 
     run([PYTHON, str(REPO / "scripts" / "build_real_temporal_dataset.py")],
         "Build real temporal risk dataset")

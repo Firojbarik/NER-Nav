@@ -1,0 +1,372 @@
+{
+  "status": "GATED_LOW_CONFIDENCE",
+  "model_version": "2026-08-28_205118_f8841bdc",
+  "dataset_version": "real_temporal_risk_dataset:f8841bdc30b0",
+  "dataset_sha256": "f8841bdc30b098137b3a5674a2a447000a1ab6c7f6eaa125590c1c53a4dbca04",
+  "input_manifest": "data\\processed\\ml\\ml_input_manifest.json",
+  "input_manifest_sha256": "b9b06aedabe8071399e7e3d552b360c5d565278407812e164c37c3e992bd715b",
+  "feature_version": "2cbe0e4fc357e4c87aa4b63bd4c02118a430a0b2c287de41b08e41f2548a64fe",
+  "code_version": {
+    "git_commit": "04a12ee18d77e707bd4731e121b1b9dc80c8e697",
+    "working_tree_dirty": true
+  },
+  "training_timestamp": "2026-08-28T20:51:18.765822+05:30",
+  "demo_ready": false,
+  "production_ready": false,
+  "gated": true,
+  "gate_reasons": [
+    "test ROC-AUC 0.5666666666666667 < 0.65"
+  ],
+  "gates": {
+    "demo": {
+      "passed": false,
+      "requirements": {
+        "minimum_test_events": 3,
+        "minimum_roc_auc": 0.65,
+        "minimum_avg_precision": 0.5
+      },
+      "reasons": [
+        "test ROC-AUC 0.5666666666666667 < 0.65"
+      ],
+      "status": "DEMO_GATE_FAILED"
+    },
+    "production": {
+      "passed": false,
+      "requirements": {
+        "minimum_test_events": 30,
+        "minimum_recall": 0.7,
+        "minimum_roc_auc": 0.75,
+        "minimum_avg_precision": 0.6
+      },
+      "reasons": [
+        "test events 9 < 30",
+        "test ROC-AUC 0.5666666666666667 < 0.75"
+      ],
+      "status": "NOT_PRODUCTION_READY"
+    }
+  },
+  "caveat": "Limited-confidence demo model trained/evaluated from 120 samples across 56 events (96 positives, 24 negatives). Only 9 future events are in the held-out test split; negative labels are source-backed road-status observations, not a substitute for dense segment-level monitoring. This is not production-safe.",
+  "split": {
+    "train_events": [
+      "nagaland_viswema_2017_07_15",
+      "manipur_nungdolan_nh37_2021_06_13",
+      "meghalaya_sonapur_2022_09_06",
+      "sikkim_nh10_singtam_2023_10_04",
+      "arunachal_sela_pass_nh13_2024_02_03",
+      "assam_harangajao_2024_05_28",
+      "mizoram_hunthar_2024_05_28",
+      "manipur_irang_2024_05_29",
+      "meghalaya_kuliang_2024_06_18",
+      "arunachal_babuk_2024_07_04",
+      "sikkim_nh10_sisney_2024_07_12",
+      "arunachal_palizi_2024_07_16",
+      "nagaland_dzuza_2024_08_18",
+      "nagaland_dzudza_2024_08_20",
+      "nagaland_pherima_2024_09_03",
+      "nagaland_pherima_2024_09_04",
+      "manipur_nungdalal_2025_03_15",
+      "arunachal_bana_seppa_2025_06_01",
+      "arunachal_tawang_2025_06_01",
+      "sikkim_chungthang_2025_06_01",
+      "nagaland_kisama_nh2_2025_06_01",
+      "manipur_sinzawl_nh102b_2025_06_02",
+      "assam_jatinga_2025_06_24",
+      "negative_observation_nh6_open_2024_06_20_001",
+      "negative_observation_nh6_open_2024_06_20_002",
+      "negative_observation_nh6_open_2024_06_20_003",
+      "negative_observation_nh6_open_2024_06_20_004",
+      "negative_observation_nh10_open_2024_08_04_001",
+      "negative_observation_nh10_open_2024_08_04_002",
+      "negative_observation_nh10_open_2024_08_04_003",
+      "negative_observation_nh10_open_2024_08_04_004",
+      "negative_observation_nh29_open_2024_09_03_001",
+      "negative_observation_nh29_open_2024_09_03_002",
+      "negative_observation_nh29_open_2024_09_03_003",
+      "negative_observation_nh29_open_2024_09_03_004",
+      "negative_observation_nh102b_open_2025_06_10_001",
+      "negative_observation_nh102b_open_2025_06_10_002",
+      "negative_observation_nh102b_open_2025_06_10_003",
+      "negative_observation_nh102b_open_2025_06_10_004"
+    ],
+    "val_events": [
+      "noney_nhb37_landslide_2025_07_16",
+      "assam_dima_hasao_2025_07_16",
+      "manipur_chiangpi_nh102b_2025_07_29",
+      "nagaland_tsiesema_nh2_2025_08_25",
+      "negative_observation_nh37_open_2025_06_23_001",
+      "negative_observation_nh37_open_2025_06_23_002",
+      "negative_observation_nh37_open_2025_06_23_003",
+      "negative_observation_nh37_open_2025_06_23_004"
+    ],
+    "test_events": [
+      "tripura_nh208_kailashahar_2025_09_12",
+      "assam_lumding_2025_09_14",
+      "arunachal_rottung_nh13_2026_07_02",
+      "sikkim_bardang_nh10_2026_07_07",
+      "arunachal_pakro_nh13_2026_07_13",
+      "negative_observation_nh2_open_2025_08_29_001",
+      "negative_observation_nh2_open_2025_08_29_002",
+      "negative_observation_nh2_open_2025_08_29_003",
+      "negative_observation_nh2_open_2025_08_29_004"
+    ],
+    "n_train_events": 39,
+    "n_val_events": 8,
+    "n_test_events": 9,
+    "n_test_positives": 15,
+    "chronological": true,
+    "split_by": "event (chronological; no sample leakage)",
+    "training_period": {
+      "start": "2017-07-08T00:00:00",
+      "end": "2025-06-23T00:00:00"
+    },
+    "validation_period": {
+      "start": "2025-06-23T00:00:00",
+      "end": "2025-08-24T00:00:00"
+    },
+    "test_period": {
+      "start": "2025-08-29T00:00:00",
+      "end": "2026-07-12T00:00:00"
+    }
+  },
+  "threshold_selection": {
+    "strategy": "target_recall_met_max_precision",
+    "target_recall": 0.7,
+    "precision_floor": 0.3,
+    "validation_precision": 0.8571428571428571,
+    "validation_recall": 1.0,
+    "validation_f1": 0.9230769230769231
+  },
+  "calibration": {
+    "method": "isotonic_on_validation",
+    "optional": true,
+    "calibrator_fitted": true,
+    "note": "Calibration is optional and fit only on validation data; the current validation set is very small.",
+    "calibrator_file": "data\\models\\prod_real_temporal_2026-08-28_205118_f8841bdc_calib.json",
+    "calibrator_sha256": "e396d34bc88b195c4b5ee1bdbed40a0d9aea841a229f3297459edb55c5789c6e"
+  },
+  "test_threshold": 0.8461538553237915,
+  "test_metrics": {
+    "n": 19,
+    "n_pos": 15,
+    "roc_auc": 0.5666666666666667,
+    "avg_precision": 0.8307533539731682,
+    "precision": 0.7647058823529411,
+    "recall": 0.8666666666666667,
+    "f1": 0.8125,
+    "false_negatives": 2,
+    "false_positives": 4,
+    "false_negative_rate": 0.13333333333333333,
+    "confusion_matrix": [
+      [
+        0,
+        4
+      ],
+      [
+        2,
+        13
+      ]
+    ],
+    "threshold": 0.8461538553237915,
+    "brier_score": 0.2672064796633084,
+    "recall_at_top_k": {
+      "top_10pct": {
+        "n_selected": 2,
+        "positives_found": 2,
+        "recall": 0.13333333333333333
+      },
+      "top_25pct": {
+        "n_selected": 5,
+        "positives_found": 5,
+        "recall": 0.3333333333333333
+      }
+    }
+  },
+  "baselines": {
+    "majority_no_disruption": {
+      "n": 19,
+      "n_pos": 15,
+      "roc_auc": 0.5,
+      "avg_precision": 0.7894736842105263,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_negatives": 15,
+      "false_positives": 0,
+      "false_negative_rate": 1.0,
+      "confusion_matrix": [
+        [
+          4,
+          0
+        ],
+        [
+          15,
+          0
+        ]
+      ],
+      "threshold": 0.5,
+      "brier_score": 0.7894736842105263
+    },
+    "rainfall_7day_threshold": {
+      "n": 19,
+      "n_pos": 15,
+      "roc_auc": 0.6166666666666667,
+      "avg_precision": 0.9027514865595361,
+      "precision": 0.7647058823529411,
+      "recall": 0.8666666666666667,
+      "f1": 0.8125,
+      "false_negatives": 2,
+      "false_positives": 4,
+      "false_negative_rate": 0.13333333333333333,
+      "confusion_matrix": [
+        [
+          0,
+          4
+        ],
+        [
+          2,
+          13
+        ]
+      ],
+      "threshold": 0.18823529411764706,
+      "brier_score": 0.25414678564924426,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.75,
+        "validation_recall": 1.0,
+        "validation_f1": 0.8571428571428571
+      }
+    },
+    "rainfall_30day_threshold": {
+      "n": 19,
+      "n_pos": 15,
+      "roc_auc": 0.55,
+      "avg_precision": 0.8837129812052412,
+      "precision": 0.7777777777777778,
+      "recall": 0.9333333333333333,
+      "f1": 0.8484848484848485,
+      "false_negatives": 1,
+      "false_positives": 4,
+      "false_negative_rate": 0.06666666666666667,
+      "confusion_matrix": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          14
+        ]
+      ],
+      "threshold": 0.3176470588235294,
+      "brier_score": 0.21894736842105264,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.75,
+        "validation_recall": 1.0,
+        "validation_f1": 0.8571428571428571
+      }
+    },
+    "logistic_regression": {
+      "n": 19,
+      "n_pos": 15,
+      "roc_auc": 0.8666666666666667,
+      "avg_precision": 0.9711500974658869,
+      "precision": 0.7777777777777778,
+      "recall": 0.9333333333333333,
+      "f1": 0.8484848484848485,
+      "false_negatives": 1,
+      "false_positives": 4,
+      "false_negative_rate": 0.06666666666666667,
+      "confusion_matrix": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          14
+        ]
+      ],
+      "threshold": 0.11437005123389368,
+      "brier_score": 0.23550374087813347,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.75,
+        "validation_recall": 1.0,
+        "validation_f1": 0.8571428571428571
+      }
+    }
+  },
+  "baseline_comparison": {
+    "beats_all_comparable_baselines_on_roc_auc_and_avg_precision": false,
+    "baselines_beaten_on_both": [
+      "majority_no_disruption"
+    ],
+    "statement": "XGBoost does not beat every comparable baseline on both ROC-AUC and average precision; model advantage is unproven."
+  },
+  "grouped_cv": {
+    "method": "chronological_expanding_window_grouped_cv",
+    "n_folds": 0,
+    "note": "not enough events/labels for grouped CV",
+    "pooled_roc_auc": null,
+    "pooled_avg_precision": null
+  },
+  "robustness": {
+    "note": "Single chronological test set (3-4 events) is noisy; grouped expanding-window CV aggregates out-of-fold predictions across many future test blocks for a stabler generalization estimate.",
+    "single_split_roc_auc": 0.5666666666666667,
+    "single_split_avg_precision": 0.8307533539731682,
+    "cv_pooled_roc_auc": null,
+    "cv_pooled_avg_precision": null,
+    "cv_roc_auc_min": null,
+    "cv_roc_auc_max": null,
+    "cv_roc_auc_std": null,
+    "cv_avg_precision_min": null,
+    "cv_avg_precision_max": null,
+    "cv_avg_precision_std": null,
+    "cv_n_folds": 0
+  },
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 2,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "eval_metric": "logloss",
+    "random_state": 2026
+  },
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "terrain_known",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope",
+    "month",
+    "seasonal_sin",
+    "seasonal_cos",
+    "monsoon_active",
+    "days_into_monsoon"
+  ],
+  "model_file": "data\\models\\prod_real_temporal_2026-08-28_205118_f8841bdc.ubj",
+  "model_sha256": "86183c575d3cbf2d1ee23aa564e206a9c466bc0b038554d87560c4a695cc2d70",
+  "feature_spec_file": "data\\models\\prod_real_temporal_2026-08-28_205118_f8841bdc_features.json",
+  "feature_spec_sha256": "4c1006b0d2345292f1c8af1ff1c868bae1b61cb0bc7c56d535246cbe74c599e7",
+  "risk_policy_file": "data\\models\\risk_policy_2026-08-28_205118_f8841bdc.json",
+  "risk_policy_sha256": "42507fb1dcb6a94bf98c83f38a72df27bf1783eaf55b80d3da066ff08ec0ef90"
+}

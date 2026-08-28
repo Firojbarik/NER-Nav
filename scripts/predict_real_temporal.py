@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+from scipy import interpolate
 
 from ml.features.seasonal import (  # noqa: E402
     days_into_monsoon,
@@ -32,6 +34,28 @@ REQUIRED_RAINFALL = [
     "rainfall_1day", "rainfall_3day", "rainfall_7day",
     "rainfall_14day", "rainfall_30day",
 ]
+
+# These are input-boundary checks, not learned model constraints.  The upper
+# rainfall bound is deliberately generous for cumulative regional rainfall,
+# while still rejecting values that are plainly malformed rather than merely
+# out of distribution.
+MAX_RAINFALL_MM = 10_000.0
+SUPPORTED_HIGHWAY_TYPES = {
+    "motorway", "trunk", "primary", "secondary", "tertiary",
+    "tertiary_link", "secondary_link", "primary_link", "residential",
+    "living_street", "service", "unclassified", "road", "track",
+}
+OPTIONAL_METADATA = {
+    "osm_id", "road_segment_id", "latitude", "longitude", "highway",
+    "road_type", "category",
+}
+DERIVED_FEATURES = {
+    "terrain_known", "rain_intensity_1_vs_7", "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7", "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30", "slope_x_rain7", "slope_x_rain30",
+    "elev_x_slope", "month", "seasonal_sin", "seasonal_cos",
+    "monsoon_active", "days_into_monsoon",
+}
 
 
 def sha256_file(path):
@@ -51,9 +75,16 @@ def _resolve_tag(tag):
     return json.loads(pointer.read_text(encoding="utf-8"))["model_version"]
 
 
+def validate_model_tag(tag):
+    """Reject path separators before using a model tag in artifact paths."""
+    if not isinstance(tag, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", tag):
+        raise ValueError("model tag has an invalid format")
+    return tag
+
+
 def load_model_bundle(tag: str):
     """Load and integrity-check a frozen model bundle."""
-    tag = _resolve_tag(tag)
+    tag = validate_model_tag(_resolve_tag(tag))
     report_path = MODEL_DIR / f"prod_report_{tag}.json"
     feature_path = MODEL_DIR / f"prod_real_temporal_{tag}_features.json"
     model_path = MODEL_DIR / f"prod_real_temporal_{tag}.ubj"
@@ -63,6 +94,11 @@ def load_model_bundle(tag: str):
 
     report = json.loads(report_path.read_text(encoding="utf-8"))
     spec = json.loads(feature_path.read_text(encoding="utf-8"))
+    if not report.get("input_manifest_sha256"):
+        raise ValueError(
+            "legacy model artifact lacks the verified ML input manifest; "
+            "historical/demo artifacts with assumed negatives are not eligible"
+        )
     if report.get("model_sha256") and sha256_file(model_path) != report["model_sha256"]:
         raise ValueError("model artifact SHA256 does not match its report")
     if (report.get("feature_spec_sha256")
@@ -110,6 +146,25 @@ def _parse_timestamp(value, field):
     return parsed
 
 
+def validate_road_segment_id(value):
+    """Return a safe scalar road identifier or reject malformed identity."""
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        raise ValueError("road_segment_id must be a non-empty scalar string or integer")
+    normalized = str(value).strip()
+    if (not normalized or normalized.lower() == "unknown"
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", normalized)):
+        raise ValueError("road_segment_id has an invalid format")
+    return normalized
+
+
+def _coerce_numeric(value):
+    """Coerce malformed scalar input to NaN for a controlled error path."""
+    try:
+        return pd.to_numeric(value, errors="coerce")
+    except (TypeError, ValueError):
+        return np.nan
+
+
 def validate_and_prepare(values, features, prediction_timestamp,
                          weather_observed_at=None, feature_profile=None):
     """Validate real observations and derive the frozen model feature vector."""
@@ -118,12 +173,36 @@ def validate_and_prepare(values, features, prediction_timestamp,
     errors = []
     prepared = dict(values)
 
+    allowed = (set(REQUIRED_RAINFALL) | {"elevation_m", "slope_degrees"}
+               | OPTIONAL_METADATA | DERIVED_FEATURES)
+    unknown_fields = sorted(set(prepared) - allowed)
+    if unknown_fields:
+        errors.append(f"unknown input fields: {unknown_fields}")
+
+    for name in ("latitude", "longitude"):
+        if name in prepared:
+            value = _coerce_numeric(prepared[name])
+            if np.ndim(value) != 0 or not np.isfinite(value):
+                errors.append(f"{name} must be a finite scalar")
+            elif name == "latitude" and not -90 <= float(value) <= 90:
+                errors.append("latitude must be between -90 and 90")
+            elif name == "longitude" and not -180 <= float(value) <= 180:
+                errors.append("longitude must be between -180 and 180")
+
+    for name in ("highway", "road_type", "category"):
+        if name in prepared and prepared[name] is not None:
+            category = str(prepared[name]).strip().lower()
+            if category not in SUPPORTED_HIGHWAY_TYPES:
+                errors.append(f"{name} is not a supported road category")
+
     for name in REQUIRED_RAINFALL:
-        value = pd.to_numeric(prepared.get(name), errors="coerce")
-        if not np.isfinite(value):
+        value = _coerce_numeric(prepared.get(name))
+        if np.ndim(value) != 0 or not np.isfinite(value):
             errors.append(f"{name} is required and must be finite")
         elif value < 0:
             errors.append(f"{name} cannot be negative")
+        elif value > MAX_RAINFALL_MM:
+            errors.append(f"{name} exceeds the supported physical maximum of {MAX_RAINFALL_MM:g} mm")
         else:
             prepared[name] = float(value)
 
@@ -132,8 +211,8 @@ def validate_and_prepare(values, features, prediction_timestamp,
         if raw is None:
             prepared[name] = None
             continue
-        value = pd.to_numeric(raw, errors="coerce")
-        if not np.isfinite(value):
+        value = _coerce_numeric(raw)
+        if np.ndim(value) != 0 or not np.isfinite(value):
             errors.append(f"{name} must be finite or null")
         else:
             prepared[name] = float(value)
@@ -225,11 +304,20 @@ def _calibrate(raw_probability, calibration):
         return raw_probability
     if calibration.get("format") != "isotonic_thresholds_v1":
         raise ValueError("unsupported calibration artifact format")
-    return float(np.interp(
-        raw_probability,
-        np.asarray(calibration["x_thresholds"], dtype=float),
-        np.asarray(calibration["y_thresholds"], dtype=float),
-    ))
+    # Reconstruct sklearn's scipy.interp1d + float32 cast semantics.  Using
+    # np.interp here changes a few borderline values by ~6e-8 and can change
+    # tied ranks in AUC/AP, so inference must match training exactly.
+    x = np.asarray(calibration["x_thresholds"], dtype=np.float32)
+    y = np.asarray(calibration["y_thresholds"], dtype=np.float32)
+    if len(x) == 1:
+        return float(y[0])
+    value = np.asarray([raw_probability], dtype=x.dtype)
+    value = np.clip(value, x[0], x[-1])
+    fn = interpolate.interp1d(
+        x, y, kind="linear", bounds_error=False,
+        fill_value=(y[0], y[-1]),
+    )
+    return float(fn(value).astype(value.dtype)[0])
 
 
 def predict(bundle, values):
@@ -298,9 +386,10 @@ def main():
 
         prediction_timestamp = (
             args.prediction_timestamp or datetime.now(timezone.utc).isoformat())
-        road_segment_id = args.road_segment_id or values.get("osm_id")
-        if road_segment_id in (None, "", "unknown"):
+        road_segment_id = args.road_segment_id or values.get("road_segment_id", values.get("osm_id"))
+        if road_segment_id is None:
             raise ValueError("road_segment_id is required")
+        road_segment_id = validate_road_segment_id(road_segment_id)
 
         prepared, quality = validate_and_prepare(
             values, bundle["features"], prediction_timestamp,
@@ -326,6 +415,7 @@ def main():
             risk_policy_version=bundle["risk_policy"]["version"],
             operating_decision=operating_decision,
             data_quality=quality,
+            trace_stream="production",
         )
         output = {
             **result,

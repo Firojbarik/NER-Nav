@@ -1,5 +1,7 @@
 ﻿from fastapi import FastAPI
 
+from backend.app.api.routes import router
+
 app = FastAPI(
     title="NER-Nav API",
     version="0.1.0",
@@ -8,6 +10,7 @@ app = FastAPI(
         "Platform for the North Eastern Region."
     ),
 )
+app.include_router(router)
 
 
 @app.get("/health", tags=["system"])

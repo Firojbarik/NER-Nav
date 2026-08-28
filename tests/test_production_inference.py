@@ -4,6 +4,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
@@ -70,6 +71,60 @@ class TestProductionInference(unittest.TestCase):
                 values, self.training.FEATURES,
                 "2026-08-27T12:00:00+05:30")
 
+    def test_malformed_metadata_is_rejected(self):
+        values = self.valid_values()
+        values["latitude"] = 91
+        with self.assertRaisesRegex(ValueError, "latitude"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+        values = self.valid_values()
+        values["longitude"] = 181
+        with self.assertRaisesRegex(ValueError, "longitude"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+        values = self.valid_values()
+        values["highway"] = "teleporter"
+        with self.assertRaisesRegex(ValueError, "supported road category"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+        values = self.valid_values()
+        values["unexpected"] = 1
+        with self.assertRaisesRegex(ValueError, "unknown input fields"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+    def test_extreme_rainfall_is_rejected(self):
+        values = self.valid_values()
+        values["rainfall_30day"] = 1e12
+        with self.assertRaisesRegex(ValueError, "physical maximum"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+        values = self.valid_values()
+        values["rainfall_7day"] = {"not": "scalar"}
+        with self.assertRaisesRegex(ValueError, "required and must be finite"):
+            self.inference.validate_and_prepare(
+                values, self.training.FEATURES,
+                "2026-08-27T12:00:00+05:30")
+
+    def test_road_segment_id_validation(self):
+        with self.assertRaisesRegex(ValueError, "scalar"):
+            self.inference.validate_road_segment_id({"bad": "id"})
+        self.assertEqual(self.inference.validate_road_segment_id("test_segment_123"),
+                         "test_segment_123")
+
+    def test_model_tag_cannot_escape_artifact_directory(self):
+        with self.assertRaisesRegex(ValueError, "model tag"):
+            self.inference.load_model_bundle("..\\..\\outside")
+
     def test_future_prediction_timestamp_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "cannot be in the future"):
             self.inference.validate_and_prepare(
@@ -97,15 +152,38 @@ class TestProductionInference(unittest.TestCase):
             / f"prod_real_temporal_{bundle['tag']}_features.json"
         ).read_text(encoding="utf-8"))
 
+    def test_legacy_demo_artifact_is_rejected(self):
+        legacy = self.inference.MODEL_DIR / "prod_report_2026-08-28_133546_b7486dea.json"
+        if not legacy.exists():
+            self.skipTest("historical demo artifact absent")
+        with self.assertRaises(ValueError):
+            self.inference.load_model_bundle("2026-08-28_133546_b7486dea")
+
+    def test_calibration_matches_saved_float32_semantics(self):
+        bundle = self.inference.load_model_bundle("latest")
+        calibration = bundle["calibration"]
+        raw_values = [0.08598612248897552, 0.4244638681411743,
+                      0.6244120597839355]
+        x = np.asarray(calibration["x_thresholds"], dtype=np.float32)
+        y = np.asarray(calibration["y_thresholds"], dtype=np.float32)
+        fn = self.inference.interpolate.interp1d(
+            x, y, kind="linear", bounds_error=False,
+            fill_value=(y[0], y[-1]))
+        for raw in raw_values:
+            value = np.asarray([raw], dtype=x.dtype)
+            value = np.clip(value, x[0], x[-1])
+            want = float(fn(value)[0])
+            self.assertEqual(self.inference._calibrate(raw, calibration), want)
+
 
 class TestReadinessAudit(unittest.TestCase):
-    def test_active_dataset_exposes_negative_label_gap(self):
+    def test_active_dataset_has_observation_backed_negatives(self):
         audit = load_module(
             "production_audit", "scripts/audit_ml_production_readiness.py")
         ds = pd.read_parquet(audit.DATASET)
         result = audit.audit_dataset(ds)
-        self.assertGreater(result["labels"]["assumed_negative_count"], 0)
-        self.assertEqual(result["labels"]["confirmed_negative_count"], 0)
+        self.assertEqual(result["labels"]["assumed_negative_count"], 0)
+        self.assertEqual(result["labels"]["confirmed_negative_count"], 24)
         self.assertEqual(result["quality"]["duplicate_sample_keys"], 0)
 
 

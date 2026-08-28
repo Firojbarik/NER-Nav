@@ -28,8 +28,13 @@ from sklearn.metrics import (
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from ml.data.training_gate import enforce_training_input_gate  # noqa: E402
+
 DATASET = Path("data/processed/ml/real_temporal_risk_dataset.parquet")
 MODEL_DIR = Path("data/models")
+INPUT_MANIFEST = Path("data/processed/ml/ml_input_manifest.json")
 
 FEATURES = ["rainfall_1day", "rainfall_3day", "rainfall_7day", "rainfall_14day",
             "rainfall_30day", "elevation_m", "slope_degrees",
@@ -43,12 +48,20 @@ FEATURES = ["rainfall_1day", "rainfall_3day", "rainfall_7day", "rainfall_14day",
             "days_into_monsoon"]
 NUMERIC = [c for c in FEATURES if c not in ("terrain_known",)]
 
-HYPERPARAMS = dict(n_estimators=100, max_depth=2, learning_rate=0.1,
-                   subsample=0.8, colsample_bytree=0.8,
+# Keep the learner deliberately small for the current evidence volume. The
+# validation slice also controls early stopping; a larger tree ensemble can
+# memorize the 3 anchor rows per event without learning a transferable rule.
+HYPERPARAMS = dict(n_estimators=300, max_depth=1, learning_rate=0.03,
+                   min_child_weight=5, reg_alpha=0.5, reg_lambda=10.0,
+                   gamma=0.1, subsample=0.8, colsample_bytree=0.8,
                    eval_metric="logloss", random_state=2026)
+EARLY_STOPPING_ROUNDS = 20
+
+MAX_GENERALIZATION_GAP = 0.20
 
 TARGET_RECALL = 0.70
 MIN_PRECISION_FLOOR = 0.30
+MAX_REVIEWABLE_ALERT_RATE = 0.30
 
 DEMO_MIN_TEST_EVENTS = 3
 DEMO_MIN_ROC_AUC = 0.65
@@ -58,6 +71,15 @@ PRODUCTION_MIN_TEST_EVENTS = 30
 PRODUCTION_MIN_RECALL = 0.70
 PRODUCTION_MIN_ROC_AUC = 0.75
 PRODUCTION_MIN_AVG_PRECISION = 0.60
+
+# The previous three-event holdout contained only the three newest 2026
+# positive events. Keep a larger, predeclared chronological holdout so the
+# current dataset's test set contains both source-backed negatives and future
+# confirmed events. These defaults also satisfy the project's minimum evidence
+# split (10 validation events and 30 future test events), subject to full
+# metric and provenance gates.
+DEFAULT_VALIDATION_EVENTS = 10
+DEFAULT_TEST_EVENTS = 30
 
 # Compatibility aliases for code that previously inspected the demo-level gate.
 MIN_TEST_EVENTS = DEMO_MIN_TEST_EVENTS
@@ -78,6 +100,19 @@ def sha256_file(path):
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def verified_manifest_hash(path):
+    """Return the manifest's canonical declared hash, not its file hash."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    declared = payload.get("manifest_sha256")
+    content = dict(payload)
+    content.pop("manifest_sha256", None)
+    canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
+    calculated = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    if not isinstance(declared, str) or declared != calculated:
+        raise RuntimeError("ML input manifest SHA256 does not match its contents")
+    return declared
 
 
 def code_version():
@@ -116,7 +151,32 @@ def training_feature_profile(X):
     return profile
 
 
-def split_by_events(ds, n_val_events=2, n_test_events=3):
+def fit_xgb_model(X_train, y_train, X_validation, y_validation):
+    """Fit the bounded learner with validation-only early stopping."""
+    model = xgb.XGBClassifier(
+        **HYPERPARAMS, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+    model.fit(X_train, y_train,
+              eval_set=[(X_validation, y_validation)], verbose=False)
+    return model
+
+
+def overfit_diagnostics(y_train, train_scores, y_validation, validation_scores):
+    """Measure train/validation ranking separation without touching test data."""
+    train_auc = _safe_auc(y_train, train_scores)
+    validation_auc = _safe_auc(y_validation, validation_scores)
+    gap = (train_auc - validation_auc
+           if train_auc is not None and validation_auc is not None else None)
+    return {
+        "train_roc_auc": train_auc,
+        "validation_roc_auc": validation_auc,
+        "generalization_gap": gap,
+        "max_allowed_gap": MAX_GENERALIZATION_GAP,
+        "overfit_warning": gap is not None and gap > MAX_GENERALIZATION_GAP,
+    }
+
+
+def split_by_events(ds, n_val_events=DEFAULT_VALIDATION_EVENTS,
+                    n_test_events=DEFAULT_TEST_EVENTS):
     """Return chronological, event-disjoint train/validation/test frames.
     
     Events are grouped by their minimum prediction_time to ensure events
@@ -158,6 +218,18 @@ def split_by_events(ds, n_val_events=2, n_test_events=3):
     return grab(train_ids), grab(val_ids), grab(test_ids)
 
 
+def require_two_class_test_split(test):
+    """Fail closed when a requested test split cannot support ROC-AUC."""
+    labels = test["label"].dropna().astype(int)
+    if labels.nunique() < 2:
+        counts = labels.value_counts().to_dict()
+        raise ValueError(
+            "chronological test split is single-class; increase "
+            "--n-test-events or add source-backed observations before "
+            f"evaluating ROC-AUC (label_counts={counts})"
+        )
+
+
 def _event_groups_chronological(ds):
     """Return event groups (lists of event_ids) ordered by min prediction_time.
 
@@ -197,6 +269,8 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
     groups = _event_groups_chronological(ds)
     all_ids = set(ds["event_id"].unique())
     folds = []
+    pooled_labels = []
+    pooled_scores = []
 
     # Expanding window: train grows, test block slides forward.
     # Ensure every event group (except the very first block) gets tested at
@@ -213,12 +287,10 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
         val_ids = [eid for g in groups[start:start + n_val_blocks] for eid in g]
         test_ids = [eid for g in groups[start + n_val_blocks:
                                         start + n_val_blocks + 1] for eid in g]
-        # Skip tiny val folds that are all-one-class (calibration cannot help,
-        # but for ranking we only need scores; keep fold only if test has 2 cls)
         train_df = ds[ds["event_id"].isin(train_ids)]
         val_df = ds[ds["event_id"].isin(val_ids)]
         test_df = ds[ds["event_id"].isin(test_ids)]
-        if test_df["label"].nunique() < 2 or len(test_df) < 4:
+        if len(test_df) < 1:
             start += 1
             continue
         Xtr, ytr = _cv_mat(train_df)
@@ -227,17 +299,14 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
         if len(np.unique(ytr)) < 2:
             start += 1
             continue
-        model = xgb.XGBClassifier(**HYPERPARAMS)
-        model.fit(Xtr, ytr)
+        model = fit_xgb_model(Xtr, ytr, Xva, yva)
         val_scores = model.predict_proba(Xva)[:, 1]
         test_scores = model.predict_proba(Xte)[:, 1]
-        # Calibrate on val only if it has both classes; else use raw scores.
-        if len(np.unique(yva)) == 2:
-            cal = IsotonicRegression(out_of_bounds="clip").fit(val_scores, yva)
-            test_scores = cal.predict(test_scores)
         te_auc = _safe_auc(yte, test_scores)
         te_ap = (float(average_precision_score(yte, test_scores))
-                 if len(yte) else None)
+                 if len(yte) and np.unique(yte).size == 2 else None)
+        pooled_labels.extend(yte.tolist())
+        pooled_scores.extend(test_scores.tolist())
         folds.append({
             "test_events": test_df["event_id"].unique().tolist(),
             "n_test_positives": int(yte.sum()),
@@ -258,8 +327,9 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
     aucs = [f["test_roc_auc"] for f in folds if f["test_roc_auc"] is not None]
     aps = [f["test_avg_precision"] for f in folds
            if f["test_avg_precision"] is not None]
-    pooled_auc = float(np.mean(aucs)) if aucs else None
-    pooled_ap = float(np.mean(aps)) if aps else None
+    pooled_auc = _safe_auc(np.asarray(pooled_labels), np.asarray(pooled_scores))
+    pooled_ap = (float(average_precision_score(pooled_labels, pooled_scores))
+                 if np.unique(pooled_labels).size == 2 else None)
     return {
         "method": "chronological_expanding_window_grouped_cv",
         "n_folds": len(folds),
@@ -271,13 +341,54 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
         "pooled_avg_precision_min": float(np.min(aps)) if aps else None,
         "pooled_avg_precision_max": float(np.max(aps)) if aps else None,
         "pooled_avg_precision_std": float(np.std(aps)) if len(aps) > 1 else None,
+        "pooled_n_samples": len(pooled_labels),
+        "pooled_n_positives": int(np.sum(pooled_labels)),
         "folds": folds,
     }
 
 
+def select_top_k_threshold(scores, max_alert_rate=MAX_REVIEWABLE_ALERT_RATE):
+    """Select a validation score cutoff for at most ``max_alert_rate`` alerts.
+
+    This label-free top-k policy does not optimize against the tiny validation
+    label set. Ties are moved above the tied score so the alert budget remains
+    a hard upper bound.
+    """
+    scores = np.asarray(scores, dtype=float)
+    finite = scores[np.isfinite(scores)]
+    if not 0 <= max_alert_rate <= 1:
+        raise ValueError("max_alert_rate must be between 0 and 1")
+    if len(finite) == 0:
+        return 0.5, {"strategy": "top_k_validation_only_no_scores",
+                      "validation_alert_rate": 0.0,
+                      "validation_selected": 0,
+                      "max_alert_rate": max_alert_rate}
+    k = int(np.floor(len(scores) * max_alert_rate))
+    if k <= 0:
+        threshold = float(np.nextafter(finite.max(), np.inf))
+    else:
+        ordered = np.sort(finite)[::-1]
+        threshold = float(ordered[min(k, len(ordered)) - 1])
+        while np.mean(scores >= threshold) > max_alert_rate:
+            threshold = float(np.nextafter(threshold, np.inf))
+    selected = int(np.sum(scores >= threshold))
+    return threshold, {
+        "strategy": "top_k_validation_only",
+        "validation_alert_rate": float(selected / len(scores)) if len(scores) else 0.0,
+        "validation_selected": selected,
+        "max_alert_rate": max_alert_rate,
+    }
+
+
 def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
-                            precision_floor=MIN_PRECISION_FLOOR):
-    """Choose a validation-only operating point for recall-sensitive routing."""
+                            precision_floor=MIN_PRECISION_FLOOR,
+                            max_alert_rate=None):
+    """Choose a validation-only operating point for recall-sensitive routing.
+
+    When ``max_alert_rate`` is provided, candidates above that review budget
+    are excluded before optimizing recall/precision. The untouched test set is
+    never used to choose the threshold.
+    """
     y = np.asarray(y, dtype=int)
     scores = np.asarray(scores, dtype=float)
     if len(y) == 0 or y.sum() == 0:
@@ -294,20 +405,31 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
             "precision": float(precision_score(y, pred, zero_division=0)),
             "recall": float(recall_score(y, pred, zero_division=0)),
             "f1": float(f1_score(y, pred, zero_division=0)),
+            "alert_rate": float(pred.mean()),
         })
 
-    target_rows = [r for r in rows if r["recall"] >= target_recall]
+    budget_rows = [r for r in rows
+                   if max_alert_rate is None
+                   or r["alert_rate"] <= max_alert_rate]
+    if not budget_rows:
+        budget_rows = rows
+
+    target_rows = [r for r in budget_rows if r["recall"] >= target_recall]
     if target_rows:
         chosen = max(target_rows,
                      key=lambda r: (r["precision"], r["f1"], r["threshold"]))
-        strategy = "target_recall_met_max_precision"
+        strategy = ("target_recall_met_max_precision_with_alert_budget"
+                    if max_alert_rate is not None
+                    else "target_recall_met_max_precision")
     else:
-        floor_rows = [r for r in rows if r["precision"] >= precision_floor]
-        pool = floor_rows or rows
+        floor_rows = [r for r in budget_rows if r["precision"] >= precision_floor]
+        pool = floor_rows or budget_rows
         chosen = max(pool, key=lambda r: (r["recall"], r["precision"],
                                           r["f1"], r["threshold"]))
         strategy = ("max_recall_with_precision_floor" if floor_rows
                     else "max_recall_precision_floor_unavailable")
+        if max_alert_rate is not None:
+            strategy += "_with_alert_budget"
 
     return chosen["threshold"], {
         "strategy": strategy,
@@ -316,6 +438,8 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
         "validation_precision": chosen["precision"],
         "validation_recall": chosen["recall"],
         "validation_f1": chosen["f1"],
+        "validation_alert_rate": chosen["alert_rate"],
+        "max_alert_rate": max_alert_rate,
     }
 
 
@@ -342,6 +466,11 @@ def eval_metrics(y, p, thresh=0.5, include_calibration=True):
         "false_negatives": int(fn),
         "false_positives": int(fp),
         "false_negative_rate": float(fn / (fn + tp)) if fn + tp else None,
+        "negative_rate": float((tn + fp) / len(y)) if len(y) else None,
+        "balanced_accuracy": float(
+            ((tp / (fn + tp)) if fn + tp else 0.0)
+            + ((tn / (tn + fp)) if tn + fp else 0.0)
+        ) / 2.0,
         "confusion_matrix": [[int(tn), int(fp)], [int(fn), int(tp)]],
         "threshold": float(thresh),
     }
@@ -494,22 +623,37 @@ def build_dataset_caveat(ds, n_test_events):
         f"Limited-confidence demo model trained/evaluated from {len(ds)} samples "
         f"across {total_events} events ({n_pos} positives, {n_neg} negatives). "
         f"Only {n_test_events} future events are in the held-out test split; "
-        "negative labels include assumed-unaffected roads. This is not production-safe."
+        "negative labels are source-backed road-status observations, not a substitute "
+        "for dense segment-level monitoring. This is not production-safe."
     )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--n-val-events", type=int, default=2)
-    ap.add_argument("--n-test-events", type=int, default=3)
-    ap.add_argument("--no-calibrate", action="store_true")
+    ap.add_argument("--n-val-events", type=int, default=DEFAULT_VALIDATION_EVENTS)
+    ap.add_argument("--n-test-events", type=int, default=DEFAULT_TEST_EVENTS)
+    ap.add_argument("--calibrate", action="store_true",
+                    help="opt in to isotonic calibration; disabled by default")
+    ap.add_argument("--no-calibrate", action="store_true",
+                    help=argparse.SUPPRESS)
     ap.add_argument("--target-recall", type=float, default=TARGET_RECALL)
     ap.add_argument("--precision-floor", type=float, default=MIN_PRECISION_FLOOR)
+    ap.add_argument("--max-validation-alert-rate", type=float,
+                    default=MAX_REVIEWABLE_ALERT_RATE)
     args = ap.parse_args()
 
     ds = pd.read_parquet(DATASET)
     ds["prediction_time"] = pd.to_datetime(ds["prediction_time"])
+    # Training the existing artifact is intentionally no longer possible from
+    # an assumed-negative or incompletely sourced dataset.  The already-built
+    # artifact remains available for audit only; a replacement must clear this
+    # gate first.
+    enforce_training_input_gate(ds)
+    if not INPUT_MANIFEST.exists():
+        raise RuntimeError(f"missing ML input manifest: {INPUT_MANIFEST}")
+    input_manifest_sha256 = verified_manifest_hash(INPUT_MANIFEST)
     train, val, test = split_by_events(ds, args.n_val_events, args.n_test_events)
+    require_two_class_test_split(test)
 
     def mat(df):
         X = df[FEATURES].copy()
@@ -521,19 +665,21 @@ def main() -> int:
     Xva, yva = mat(val)
     Xte, yte = mat(test)
 
-    model = xgb.XGBClassifier(**HYPERPARAMS)
-    model.fit(Xtr, ytr)
+    model = fit_xgb_model(Xtr, ytr, Xva, yva)
     val_scores = model.predict_proba(Xva)[:, 1]
     test_scores = model.predict_proba(Xte)[:, 1]
 
+    fit_diagnostics = overfit_diagnostics(
+        ytr, model.predict_proba(Xtr)[:, 1], yva, val_scores)
+
     calibrator = None
-    if yva.sum() > 0 and (yva == 0).sum() > 0 and not args.no_calibrate:
+    if yva.sum() > 0 and (yva == 0).sum() > 0 and args.calibrate and not args.no_calibrate:
         calibrator = IsotonicRegression(out_of_bounds="clip").fit(val_scores, yva)
         val_scores = calibrator.predict(val_scores)
         test_scores = calibrator.predict(test_scores)
 
-    threshold, threshold_selection = select_recall_threshold(
-        yva, val_scores, args.target_recall, args.precision_floor)
+    threshold, threshold_selection = select_top_k_threshold(
+        val_scores, args.max_validation_alert_rate)
     test_metrics = eval_metrics(yte, test_scores, threshold)
     test_metrics["recall_at_top_k"] = recall_at_top_fraction(yte, test_scores)
 
@@ -541,6 +687,13 @@ def main() -> int:
                          >= train["prediction_time"].max())
     n_test_events = int(test["event_id"].nunique())
     gates = assess_gates(n_test_events, test_metrics, chronological)
+    if fit_diagnostics["overfit_warning"]:
+        gates["production"]["passed"] = False
+        gates["production"]["reasons"].append(
+            "train/validation ROC-AUC gap "
+            f"{fit_diagnostics['generalization_gap']:.3f} > "
+            f"{MAX_GENERALIZATION_GAP:.3f}")
+        gates["production"]["status"] = "NOT_PRODUCTION_READY"
     production_ready = gates["production"]["passed"]
     demo_ready = gates["demo"]["passed"]
     status = ("PRODUCTION_READY_EVIDENCE_SUPPORTED" if production_ready else
@@ -573,29 +726,44 @@ def main() -> int:
     model.save_model(json_path)
 
     calibration = {
-        "method": "isotonic_on_validation" if calibrator else "none",
+        "method": "isotonic_on_validation" if calibrator else "identity_no_validation_calibration",
         "optional": True,
         "calibrator_fitted": calibrator is not None,
         "note": ("Calibration is optional and fit only on validation data; "
                  "the current validation set is very small."),
     }
-    if calibrator is not None:
-        calib_path = MODEL_DIR / f"prod_real_temporal_{tag}_calib.json"
-        calib_payload = {
-            "format": "isotonic_thresholds_v1",
-            "x_thresholds": calibrator.X_thresholds_.tolist(),
-            "y_thresholds": calibrator.y_thresholds_.tolist(),
-            "out_of_bounds": "clip",
-        }
-        calib_path.write_text(json.dumps(calib_payload, indent=2), encoding="utf-8")
-        calibration["calibrator_file"] = str(calib_path)
-        calibration["calibrator_sha256"] = sha256_file(calib_path)
+    calib_path = MODEL_DIR / f"prod_real_temporal_{tag}_calib.json"
+    calibration_x = (calibrator.X_thresholds_.tolist()
+                     if calibrator is not None else [0.0, 1.0])
+    calibration_y = (calibrator.y_thresholds_.tolist()
+                     if calibrator is not None else [0.0, 1.0])
+    # scipy.interp1d is undefined for a one-point isotonic mapping. Encode a
+    # constant mapping over the valid probability domain instead, preserving
+    # the fitted value while keeping the inference artifact well-defined.
+    if len(calibration_x) == 1:
+        calibration_x = [0.0, 1.0]
+        calibration_y = [calibration_y[0], calibration_y[0]]
+    calib_payload = {
+        "format": "isotonic_thresholds_v1",
+        "x_thresholds": calibration_x,
+        "y_thresholds": calibration_y,
+        "out_of_bounds": "clip",
+    }
+    # Persist an identity mapping when the validation slice is one-class. It
+    # is not presented as fitted calibration; it simply makes the bundle's
+    # inference contract explicit and keeps the undefined calibration case
+    # from becoming a missing-artifact failure.
+    calib_path.write_text(json.dumps(calib_payload, indent=2), encoding="utf-8")
+    calibration["calibrator_file"] = str(calib_path)
+    calibration["calibrator_sha256"] = sha256_file(calib_path)
 
     feat_path = MODEL_DIR / f"prod_real_temporal_{tag}_features.json"
     feature_spec = {
         "model_version": tag,
         "dataset_version": dataset_version,
         "dataset_sha256": dataset_sha256,
+        "input_manifest": str(INPUT_MANIFEST),
+        "input_manifest_sha256": input_manifest_sha256,
         "feature_version": feature_version,
         "features": FEATURES,
         "numeric": NUMERIC,
@@ -613,6 +781,8 @@ def main() -> int:
         "model_version": tag,
         "dataset_version": dataset_version,
         "dataset_sha256": dataset_sha256,
+        "input_manifest": str(INPUT_MANIFEST),
+        "input_manifest_sha256": input_manifest_sha256,
         "feature_version": feature_version,
         "code_version": code_version_record,
         "training_timestamp": trained_at.isoformat(),
@@ -652,13 +822,17 @@ def main() -> int:
         "baselines": baselines,
         "baseline_comparison": comparison,
         "grouped_cv": cv,
+        "fit_diagnostics": fit_diagnostics,
         "robustness": {
             "note": (
                 "Single chronological test set (3-4 events) is noisy; grouped "
                 "expanding-window CV aggregates out-of-fold predictions across "
                 "many future test blocks for a stabler generalization estimate."),
-            "single_split_roc_auc": float(test_metrics["roc_auc"]),
-            "single_split_avg_precision": float(test_metrics["avg_precision"]),
+            # ROC-AUC is undefined when a chronological holdout contains only
+            # one class. Preserve that fact in the report instead of crashing
+            # and silently preventing the gated artifact from being recorded.
+            "single_split_roc_auc": test_metrics["roc_auc"],
+            "single_split_avg_precision": test_metrics["avg_precision"],
             "cv_pooled_roc_auc": cv.get("pooled_roc_auc"),
             "cv_pooled_avg_precision": cv.get("pooled_avg_precision"),
             "cv_roc_auc_min": cv.get("pooled_roc_auc_min"),
@@ -669,7 +843,8 @@ def main() -> int:
             "cv_avg_precision_std": cv.get("pooled_avg_precision_std"),
             "cv_n_folds": cv.get("n_folds"),
         },
-        "hyperparameters": HYPERPARAMS,
+        "hyperparameters": {**HYPERPARAMS,
+                             "early_stopping_rounds": EARLY_STOPPING_ROUNDS},
         "features": FEATURES,
         "model_file": str(ubj_path),
         "model_sha256": sha256_file(ubj_path),
@@ -686,6 +861,8 @@ def main() -> int:
         "version": tag,
         "dataset_version": dataset_version,
         "feature_version": feature_version,
+        "input_manifest": str(INPUT_MANIFEST),
+        "input_manifest_sha256": input_manifest_sha256,
         "status": status,
         "intended_use": "Hackathon demonstration and offline research only",
         "not_for": "Production routing, emergency response, or public safety decisions",
@@ -720,12 +897,13 @@ def main() -> int:
     print(f"STATUS => {status}")
     print(comparison["statement"])
     if cv.get("n_folds"):
+        fmt = lambda value: f"{value:.3f}" if value is not None else "n/a"
         print("Grouped CV: "
               f"n_folds={cv['n_folds']}, "
-              f"pooled ROC-AUC={cv['pooled_roc_auc']:.3f} "
-              f"[min {cv['pooled_roc_auc_min']:.3f} - max {cv['pooled_roc_auc_max']:.3f}], "
-              f"pooled AP={cv['pooled_avg_precision']:.3f} "
-              f"[min {cv['pooled_avg_precision_min']:.3f} - max {cv['pooled_avg_precision_max']:.3f}]")
+              f"pooled ROC-AUC={fmt(cv['pooled_roc_auc'])} "
+              f"[min {fmt(cv['pooled_roc_auc_min'])} - max {fmt(cv['pooled_roc_auc_max'])}], "
+              f"pooled AP={fmt(cv['pooled_avg_precision'])} "
+              f"[min {fmt(cv['pooled_avg_precision_min'])} - max {fmt(cv['pooled_avg_precision_max'])}]")
     print("Artifacts written to data/models/")
     return 0
 

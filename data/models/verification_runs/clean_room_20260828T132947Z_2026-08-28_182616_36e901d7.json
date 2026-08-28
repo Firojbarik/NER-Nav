@@ -1,0 +1,77 @@
+{
+  "generated_at": "2026-08-28T13:29:47.316987+00:00",
+  "verification_type": "real_unseen_segment_inference_no_label",
+  "performance_claim": false,
+  "model_version": "2026-08-28_182616_36e901d7",
+  "model_readiness_status": "GATED_LOW_CONFIDENCE",
+  "road_source_identifier": {
+    "type": "osm_way_id",
+    "value": 22826704
+  },
+  "was_model_sample": false,
+  "prediction_timestamp": "2026-07-12T00:00:00+00:00",
+  "input_features": {
+    "rainfall_1day": 23.40125846862793,
+    "rainfall_3day": 23.40125846862793,
+    "rainfall_7day": 126.49979400634766,
+    "rainfall_14day": 237.62249088287354,
+    "rainfall_30day": 468.641282081604,
+    "elevation_m": 43.0,
+    "slope_degrees": 89.99476701772076
+  },
+  "output": {
+    "raw_probability": 0.420098,
+    "calibrated_probability": 0.528577,
+    "disruption_probability": 0.528577,
+    "top_contributing_factors": [
+      {
+        "feature": "elevation_m",
+        "value": 43.0,
+        "contribution": -0.822717
+      },
+      {
+        "feature": "rainfall_7day",
+        "value": 126.499794,
+        "contribution": 0.435205
+      },
+      {
+        "feature": "rain_trend_1_vs_3",
+        "value": 1.0,
+        "contribution": 0.359447
+      },
+      {
+        "feature": "rainfall_14day",
+        "value": 237.622491,
+        "contribution": 0.28291
+      },
+      {
+        "feature": "rainfall_30day",
+        "value": 468.641282,
+        "contribution": 0.265945
+      }
+    ],
+    "explanation_disclaimer": "Feature contributions describe this model output and are not causal proof.",
+    "risk_level": "MEDIUM"
+  },
+  "data_quality": {
+    "weather_freshness": {
+      "status": "MISSING_METADATA",
+      "age_hours": null
+    },
+    "ood_features": [],
+    "confidence_flags": [
+      "WEATHER_FRESHNESS_UNKNOWN"
+    ],
+    "low_confidence": true
+  },
+  "performance": {
+    "model_load_ms": 162.842,
+    "single_inference_ms": 26.782,
+    "mean_warm_inference_ms_100_runs": 13.333
+  },
+  "limitations": [
+    "The observation has no future disruption label and cannot measure accuracy.",
+    "Weather freshness metadata is unavailable in the processed feature store.",
+    "OSM way ID is not yet a versioned internal road_segment_id."
+  ]
+}

@@ -46,12 +46,18 @@ import numpy as np
 import pandas as pd
 import rasterio
 
+# When launched as `python scripts/process_chirps_features.py`, Python puts
+# `scripts/` on sys.path rather than the repository root. Add the project root
+# before importing the shared ml package so the orchestrated rebuild works in
+# the same way as direct module imports.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from ml.features.rainfall import (  # noqa: E402
     aggregate_windows,
     available_day_counts,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_WEATHER_DIR = PROJECT_ROOT / "data" / "raw" / "weather"
 PROCESSED_WEATHER_DIR = PROJECT_ROOT / "data" / "processed" / "weather"
 PROCESSED_WEATHER_DIR.mkdir(parents=True, exist_ok=True)
