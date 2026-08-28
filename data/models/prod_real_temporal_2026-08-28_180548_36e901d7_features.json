@@ -1,0 +1,200 @@
+{
+  "model_version": "2026-08-28_180548_36e901d7",
+  "dataset_version": "real_temporal_risk_dataset:36e901d77e14",
+  "dataset_sha256": "36e901d77e14f81447370dd33fc920d3660b94c0e7b25c68f1c684241698b757",
+  "feature_version": "2cbe0e4fc357e4c87aa4b63bd4c02118a430a0b2c287de41b08e41f2548a64fe",
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "terrain_known",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope",
+    "month",
+    "seasonal_sin",
+    "seasonal_cos",
+    "monsoon_active",
+    "days_into_monsoon"
+  ],
+  "numeric": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope",
+    "month",
+    "seasonal_sin",
+    "seasonal_cos",
+    "monsoon_active",
+    "days_into_monsoon"
+  ],
+  "training_feature_profile": {
+    "rainfall_1day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 119.70368957519518,
+      "max": 184.41160583496094
+    },
+    "rainfall_3day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 332.0564411163327,
+      "max": 381.5801544189453
+    },
+    "rainfall_7day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 443.2822460174559,
+      "max": 553.0483093261719
+    },
+    "rainfall_14day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 560.511259651184,
+      "max": 837.8845825195312
+    },
+    "rainfall_30day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 940.7574802398681,
+      "max": 1023.3066864013672
+    },
+    "elevation_m": {
+      "missing_rate": 0.0,
+      "min": 17.0,
+      "p01": 22.0,
+      "p99": 3848.0,
+      "max": 3934.0
+    },
+    "slope_degrees": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 89.99928906079421,
+      "max": 89.99943091362017
+    },
+    "rain_intensity_1_vs_7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_intensity_3_vs_14": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 0.8040931258376157,
+      "max": 0.9817263037628013
+    },
+    "rain_concentration_3_in_7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_trend_1_vs_3": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_cumul_ratio_7_vs_30": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 0.7317735318444776,
+      "max": 0.8925144942934767
+    },
+    "terrain_known": {
+      "missing_rate": 0.0,
+      "min": 1.0,
+      "p01": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "slope_x_rain7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 35297.342008214895,
+      "max": 44141.295271991214
+    },
+    "slope_x_rain30": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 82357.9792079623,
+      "max": 84833.93816852121
+    },
+    "elev_x_slope": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 346315.93641408364,
+      "max": 354026.3991140993
+    },
+    "month": {
+      "missing_rate": 0.0,
+      "min": 1.0,
+      "p01": 1.0,
+      "p99": 10.0,
+      "max": 10.0
+    },
+    "seasonal_sin": {
+      "missing_rate": 0.0,
+      "min": -0.9999166586547379,
+      "p01": -0.9999166586547379,
+      "p99": 0.9338372288229252,
+      "max": 0.9455963874271426
+    },
+    "seasonal_cos": {
+      "missing_rate": 0.0,
+      "min": -0.9999629591162655,
+      "p01": -0.9999629591162655,
+      "p99": 0.869589389346611,
+      "max": 0.9469877530760753
+    },
+    "monsoon_active": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "days_into_monsoon": {
+      "missing_rate": 0.0,
+      "min": -133.0,
+      "p01": -122.0,
+      "p99": 122.0,
+      "max": 124.0
+    }
+  }
+}
