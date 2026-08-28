@@ -1,0 +1,155 @@
+{
+  "model_version": "2026-08-28_150413_07a1f460",
+  "dataset_version": "real_temporal_risk_dataset:07a1f4600782",
+  "dataset_sha256": "07a1f4600782fba0511333038445ec4d3b6648425128f7dc4ab69564ecf3e6e0",
+  "feature_version": "35e8d5f71ccc0505f3efe34d73b9a58a5a938ac46f9c446bf8d82b5e80aabff8",
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "terrain_known",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope"
+  ],
+  "numeric": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope"
+  ],
+  "training_feature_profile": {
+    "rainfall_1day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 128.10098327636712,
+      "max": 184.41160583496094
+    },
+    "rainfall_3day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 307.61306007385235,
+      "max": 381.5801544189453
+    },
+    "rainfall_7day": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 431.0813936614989,
+      "max": 553.0483093261719
+    },
+    "rainfall_14day": {
+      "missing_rate": 0.0,
+      "min": 0.6782040596008301,
+      "p01": 4.18405294418335,
+      "p99": 556.6480853652954,
+      "max": 837.8845825195312
+    },
+    "rainfall_30day": {
+      "missing_rate": 0.0,
+      "min": 14.116846323013306,
+      "p01": 35.198472542464735,
+      "p99": 1015.4459768867492,
+      "max": 1023.3066864013672
+    },
+    "elevation_m": {
+      "missing_rate": 0.0,
+      "min": 17.0,
+      "p01": 21.59,
+      "p99": 1959.0,
+      "max": 2486.0
+    },
+    "slope_degrees": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 89.99920864965566,
+      "max": 89.99928202806959
+    },
+    "rain_intensity_1_vs_7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_intensity_3_vs_14": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 0.9079008431210762,
+      "max": 1.0
+    },
+    "rain_concentration_3_in_7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_trend_1_vs_3": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "rain_cumul_ratio_7_vs_30": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 0.7936519384417661,
+      "max": 0.8925144942934767
+    },
+    "terrain_known": {
+      "missing_rate": 0.0,
+      "min": 1.0,
+      "p01": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "slope_x_rain7": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 34001.572145706865,
+      "max": 40266.852601876206
+    },
+    "slope_x_rain30": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 84144.9775140687,
+      "max": 90880.60086370577
+    },
+    "elev_x_slope": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 176307.90652221016,
+      "max": 223736.18195026464
+    }
+  }
+}

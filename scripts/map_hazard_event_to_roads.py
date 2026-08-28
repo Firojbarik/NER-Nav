@@ -26,6 +26,7 @@ data/processed/hazards/nrsc_sikkim_mantam_2016_road_mapping_qa.json
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -44,14 +45,6 @@ from shapely.geometry import Point
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-EVENT_PATH = (
-    PROJECT_ROOT
-    / "data"
-    / "processed"
-    / "hazards"
-    / "nrsc_sikkim_mantam_2016_event.json"
-)
-
 ROAD_PATH = (
     PROJECT_ROOT
     / "data"
@@ -67,20 +60,11 @@ OUTPUT_DIR = (
     / "hazards"
 )
 
-MAPPING_PARQUET = (
-    OUTPUT_DIR
-    / "nrsc_sikkim_mantam_2016_road_mapping.parquet"
-)
-
-MAPPING_JSON = (
-    OUTPUT_DIR
-    / "nrsc_sikkim_mantam_2016_road_mapping.json"
-)
-
-MAPPING_QA_JSON = (
-    OUTPUT_DIR
-    / "nrsc_sikkim_mantam_2016_road_mapping_qa.json"
-)
+# Event-specific paths, set by configure().
+EVENT_PATH = None
+MAPPING_PARQUET = None
+MAPPING_JSON = None
+MAPPING_QA_JSON = None
 
 # Candidate search radius.
 SEARCH_RADIUS_M = 2000.0
@@ -88,12 +72,77 @@ SEARCH_RADIUS_M = 2000.0
 # Maximum number of candidate roads to retain.
 MAX_CANDIDATES = 50
 
+# Motorable road classes considered for candidates. Minor classes
+# (residential, footway, path, track, service, steps) are excluded so that
+# real highway candidates are not diluted. The name field may be a slug; it is
+# normalized (lowercase) for comparison.
+DEFAULT_ROAD_CLASSES = [
+    "trunk",
+    "primary",
+    "secondary",
+    "tertiary",
+    "unclassified",
+]
+
+ROAD_CLASSES: list[str] = list(DEFAULT_ROAD_CLASSES)
+
 # Expected geographic CRS of the road source.
 SOURCE_CRS = "EPSG:4326"
 
-# Metric CRS for Sikkim / Mantam area.
-# UTM Zone 45N is appropriate for longitude ~88.5E.
-METRIC_CRS = "EPSG:32645"
+# Metric CRS, derived from event longitude (UTM zone) by configure().
+METRIC_CRS = None
+
+
+def utm_zone_from_lon(lon: float) -> str:
+    """Return the UTM zone EPSG code most appropriate for a longitude."""
+    zone = int((lon + 180) // 6) + 1
+    zone = max(1, min(60, zone))
+    return f"EPSG:326{zone:02d}"
+
+
+def configure(
+    event_path: str,
+    output_prefix: str,
+    metric_crs: str | None = None,
+    search_radius_m: float | None = None,
+    max_candidates: int | None = None,
+    road_classes: list[str] | None = None,
+) -> None:
+    """Set the event-specific module configuration."""
+    global EVENT_PATH, MAPPING_PARQUET, MAPPING_JSON, MAPPING_QA_JSON
+    global METRIC_CRS, SEARCH_RADIUS_M, MAX_CANDIDATES, ROAD_CLASSES
+    EVENT_PATH = Path(event_path)
+    MAPPING_PARQUET = OUTPUT_DIR / f"{output_prefix}_road_mapping.parquet"
+    MAPPING_JSON = OUTPUT_DIR / f"{output_prefix}_road_mapping.json"
+    MAPPING_QA_JSON = OUTPUT_DIR / f"{output_prefix}_road_mapping_qa.json"
+
+    if search_radius_m is not None:
+        if search_radius_m <= 0:
+            raise ValueError("search_radius_m must be > 0")
+        SEARCH_RADIUS_M = float(search_radius_m)
+
+    if max_candidates is not None:
+        if max_candidates <= 0:
+            raise ValueError("max_candidates must be > 0")
+        MAX_CANDIDATES = int(max_candidates)
+
+    if road_classes is not None:
+        normalized = [c.strip().lower() for c in road_classes if c.strip()]
+        if not normalized:
+            raise ValueError("road_classes must not be empty")
+        ROAD_CLASSES = normalized
+
+    # Derive metric CRS from the event longitude unless overridden.
+    if metric_crs:
+        METRIC_CRS = metric_crs
+        return
+    try:
+        with EVENT_PATH.open("r", encoding="utf-8") as f:
+            lon = float(json.load(f).get("longitude"))
+        METRIC_CRS = utm_zone_from_lon(lon)
+        return
+    except Exception:
+        METRIC_CRS = "EPSG:32645"
 
 
 # ---------------------------------------------------------------------
@@ -325,6 +374,41 @@ def filter_state(
 
 
 # ---------------------------------------------------------------------
+# FILTER ROAD CLASSES
+# ---------------------------------------------------------------------
+
+def filter_road_classes(
+    roads: gpd.GeoDataFrame,
+    road_classes: list[str],
+) -> gpd.GeoDataFrame:
+
+    print("Road-class filter...")
+    print("-" * 70)
+
+    classes_lower = [str(c).strip().lower() for c in road_classes]
+    classes_set = set(classes_lower)
+
+    hw = roads["highway"].fillna("").astype(str).str.lower()
+    selected_mask = hw.isin(classes_set)
+
+    selected = roads.loc[selected_mask].copy()
+    dropped = int((~selected_mask).sum())
+
+    print(f"Road classes kept: {', '.join(classes_lower)}")
+    print(f"Records retained:  {len(selected):,}")
+    print(f"Records dropped:   {dropped:,}")
+    print()
+
+    if selected.empty:
+        fail(
+            "No road records remain after road-class filter for classes: "
+            + ", ".join(classes_lower)
+        )
+
+    return selected
+
+
+# ---------------------------------------------------------------------
 # DISTANCE CALCULATION
 # ---------------------------------------------------------------------
 
@@ -410,42 +494,76 @@ def add_source_road_name_match(
 
     if not nearby_road:
         roads["source_road_name_match"] = False
+        roads["source_ref_match"] = False
+        roads["source_nh_match"] = False
         return roads
 
-    # Normalize road names.
-    source_name = (
-        nearby_road
-        .lower()
-        .replace("-", " ")
-        .replace("_", " ")
-    )
-
-    def name_match(value: Any) -> bool:
-        name = safe_str(value)
-
-        if not name:
-            return False
-
-        normalized = (
-            name
+    # Normalize a name/ref string (lowercase; - and _ -> space).
+    def normalize(value: str) -> str:
+        return (
+            value
             .lower()
             .replace("-", " ")
             .replace("_", " ")
         )
 
-        # Conservative matching.
-        #
-        # We do NOT use fuzzy matching here because a false
-        # positive could become a false training label.
-        return (
-            source_name in normalized
-            or normalized in source_name
-        )
+    source_norm = normalize(nearby_road)
+
+    # NH-number signature tokens, e.g. "national highway 6" / "NH-6" -> {"nh6"}.
+    def nh_tokens(value: str) -> set[str]:
+        import re
+        plain = value.replace("-", " ").replace("_", " ")
+        tokens = set()
+        for m in re.finditer(r"nh\s*(\d+)", plain, flags=re.IGNORECASE):
+            tokens.add(f"nh{int(m.group(1))}")
+        # also "national highway N"
+        for m in re.finditer(r"national\s+highway\s+(\d+)", plain, flags=re.IGNORECASE):
+            tokens.add(f"nh{int(m.group(1))}")
+        return tokens
+
+    source_nh = nh_tokens(source_norm)
+
+    def name_match(value: Any) -> bool:
+        name = safe_str(value)
+        if not name:
+            return False
+        normalized = normalize(name)
+        # Conservative substring matching on names (no fuzzy matching).
+        return source_norm in normalized or normalized in source_norm
+
+    def ref_match(value: Any) -> bool:
+        ref = safe_str(value)
+        return bool(ref) and (source_norm in normalize(ref) or normalize(ref) in source_norm)
+
+    def nh_match(value: Any) -> bool:
+        val = safe_str(value)
+        return bool(source_nh & nh_tokens(val))
 
     roads["source_road_name_match"] = (
         roads["name"]
         .apply(name_match)
     )
+
+    # ref-based matching (e.g. OSM ref "NH-10") - additive, does not change
+    # the original conservative name-match semantics.
+    if "ref" in roads.columns:
+        roads["source_ref_match"] = (
+            roads["ref"]
+            .apply(ref_match)
+        )
+        combined = (
+            roads[["name", "ref"]]
+            .fillna("")
+            .astype(str)
+            .agg(" ".join, axis=1)
+        )
+        roads["source_nh_match"] = combined.apply(nh_match)
+    else:
+        roads["source_ref_match"] = False
+        roads["source_nh_match"] = (
+            roads["name"]
+            .apply(nh_match)
+        )
 
     return roads
 
@@ -506,6 +624,8 @@ def save_outputs(
         "within_search_radius",
         "spatial_candidate",
         "source_road_name_match",
+        "source_ref_match",
+        "source_nh_match",
         "mapping_status",
         "confirmed_affected",
         "label_ready_for_training",
@@ -580,12 +700,19 @@ def save_outputs(
         "metric_crs": METRIC_CRS,
         "search_radius_m": SEARCH_RADIUS_M,
         "max_candidates": MAX_CANDIDATES,
+        "road_classes": list(ROAD_CLASSES),
         "candidate_count": len(mapping),
         "within_search_radius_count": int(
             mapping["within_search_radius"].sum()
         ),
         "source_road_name_match_count": int(
             mapping["source_road_name_match"].sum()
+        ),
+        "source_ref_match_count": int(
+            mapping["source_ref_match"].sum()
+        ),
+        "source_nh_match_count": int(
+            mapping["source_nh_match"].sum()
         ),
         "confirmed_affected_count": int(
             mapping["confirmed_affected"].sum()
@@ -633,8 +760,15 @@ def save_outputs(
             "outside_search_radius": int(
                 (~mapping["within_search_radius"]).sum()
             ),
+            "road_classes": list(ROAD_CLASSES),
             "road_name_matches": int(
                 mapping["source_road_name_match"].sum()
+            ),
+            "ref_matches": int(
+                mapping["source_ref_match"].sum()
+            ),
+            "nh_matches": int(
+                mapping["source_nh_match"].sum()
             ),
             "confirmed_affected": int(
                 mapping["confirmed_affected"].sum()
@@ -649,6 +783,8 @@ def save_outputs(
             "within_search_radius": "PASS",
             "spatial_candidate": "PASS",
             "source_road_name_match": "PASS",
+            "source_ref_match": "PASS",
+            "source_nh_match": "PASS",
             "mapping_status": "PASS",
             "confirmed_affected": "PASS",
             "label_ready_for_training": "PASS",
@@ -679,6 +815,74 @@ def save_outputs(
 # ---------------------------------------------------------------------
 
 def main() -> None:
+
+    parser = argparse.ArgumentParser(
+        description="Map a verified hazard event point to nearby road segments."
+    )
+    parser.add_argument(
+        "--event",
+        default=str(
+            PROJECT_ROOT
+            / "data"
+            / "processed"
+            / "hazards"
+            / "nrsc_sikkim_mantam_2016_event.json"
+        ),
+        help="Path to the event JSON.",
+    )
+    parser.add_argument(
+        "--prefix",
+        default="nrsc_sikkim_mantam_2016",
+        help="Output file prefix (e.g. 'meghalaya_sonapur_2023').",
+    )
+    parser.add_argument(
+        "--metric-crs",
+        default=None,
+        help="Override metric CRS (EPSG code). Default: derived from longitude.",
+    )
+    parser.add_argument(
+        "--radius",
+        type=float,
+        default=None,
+        help=(
+            "Candidate search radius in metres (default 2000). "
+            "Candidates beyond this are retained for inspection only."
+        ),
+    )
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        default=None,
+        help="Maximum number of nearest candidates to retain (default 50).",
+    )
+    parser.add_argument(
+        "--road-classes",
+        default=None,
+        metavar="CLASS[,CLASS...]",
+        help=(
+            "Comma-separated highway classes to consider as candidates "
+            "(default: trunk,primary,secondary,tertiary,unclassified). "
+            "Minor classes such as residential/footway/path are excluded."
+        ),
+    )
+    args = parser.parse_args()
+
+    road_classes = None
+    if args.road_classes:
+        road_classes = [
+            c.strip().lower()
+            for c in args.road_classes.split(",")
+            if c.strip()
+        ]
+
+    configure(
+        event_path=args.event,
+        output_prefix=args.prefix,
+        metric_crs=args.metric_crs,
+        search_radius_m=args.radius,
+        max_candidates=args.max_candidates,
+        road_classes=road_classes,
+    )
 
     print("=" * 70)
     print("NER-Nav — Hazard Event → Road Segment Mapping")
@@ -715,11 +919,20 @@ def main() -> None:
     )
 
     # ---------------------------------------------------------------
+    # ROAD-CLASS FILTER
+    # ---------------------------------------------------------------
+
+    roads_candidate_pool = filter_road_classes(
+        roads_state,
+        ROAD_CLASSES,
+    )
+
+    # ---------------------------------------------------------------
     # DISTANCES
     # ---------------------------------------------------------------
 
     mapping_metric = calculate_distances(
-        roads_state,
+        roads_candidate_pool,
         float(event["latitude"]),
         float(event["longitude"]),
     )
@@ -798,6 +1011,8 @@ def main() -> None:
 
     print(f"Candidate roads:          {candidate_count}")
     print(f"Within search radius:     {within_count}")
+    print(f"Road classes kept:        {', '.join(ROAD_CLASSES)}")
+    print(f"Search radius:            {SEARCH_RADIUS_M:,.0f} m")
     print(f"Road-name matches:        {name_match_count}")
     print(f"Confirmed affected:       {confirmed_count}")
     print(f"Training-ready labels:    {label_ready_count}")

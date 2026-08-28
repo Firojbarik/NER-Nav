@@ -1,0 +1,11 @@
+import pandas as pd
+ds = pd.read_parquet('data/processed/ml/real_temporal_risk_dataset.parquet')
+print(f'Total samples: {len(ds)}')
+print(f'NaN elevation: {ds["elevation_m"].isna().sum()}')
+print(f'NaN slope: {ds["slope_degrees"].isna().sum()}')
+print()
+print('Elevation stats:')
+print(ds['elevation_m'].describe())
+print()
+print('Slope stats:')
+print(ds['slope_degrees'].describe())

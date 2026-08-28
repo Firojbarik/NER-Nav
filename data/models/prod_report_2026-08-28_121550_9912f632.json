@@ -1,0 +1,317 @@
+{
+  "status": "GATED_LOW_CONFIDENCE",
+  "model_version": "2026-08-28_121550_9912f632",
+  "dataset_version": "real_temporal_risk_dataset:9912f6327478",
+  "dataset_sha256": "9912f6327478baff08062a7bd7a038e890a2fa965c5a09d3f0828c38eae3898d",
+  "feature_version": "35e8d5f71ccc0505f3efe34d73b9a58a5a938ac46f9c446bf8d82b5e80aabff8",
+  "code_version": {
+    "git_commit": "cd8ddb7c6473ea3510d18aa96f90e21a3cb4ec86",
+    "working_tree_dirty": true
+  },
+  "training_timestamp": "2026-08-28T12:15:50.040979+05:30",
+  "demo_ready": false,
+  "production_ready": false,
+  "gated": true,
+  "gate_reasons": [
+    "test ROC-AUC 0.5645833333333334 < 0.65",
+    "test avg_precision 0.47181372549019607 < 0.5"
+  ],
+  "gates": {
+    "demo": {
+      "passed": false,
+      "requirements": {
+        "minimum_test_events": 3,
+        "minimum_roc_auc": 0.65,
+        "minimum_avg_precision": 0.5
+      },
+      "reasons": [
+        "test ROC-AUC 0.5645833333333334 < 0.65",
+        "test avg_precision 0.47181372549019607 < 0.5"
+      ],
+      "status": "DEMO_GATE_FAILED"
+    },
+    "production": {
+      "passed": false,
+      "requirements": {
+        "minimum_test_events": 30,
+        "minimum_recall": 0.7,
+        "minimum_roc_auc": 0.75,
+        "minimum_avg_precision": 0.6
+      },
+      "reasons": [
+        "test events 4 < 30",
+        "test ROC-AUC 0.5645833333333334 < 0.75",
+        "test avg_precision 0.47181372549019607 < 0.6",
+        "test recall 0.5 < 0.7"
+      ],
+      "status": "NOT_PRODUCTION_READY"
+    }
+  },
+  "caveat": "Limited-confidence demo model trained/evaluated from 184 samples across 23 events (69 positives, 115 negatives). Only 4 future events are in the held-out test split; negative labels include assumed-unaffected roads. This is not production-safe.",
+  "split": {
+    "train_events": [
+      "nagaland_viswema_2017_07_15",
+      "manipur_nungdolan_nh37_2021_06_13",
+      "meghalaya_sonapur_2022_09_06",
+      "sikkim_nh10_singtam_2023_10_04",
+      "assam_harangajao_2024_05_28",
+      "mizoram_hunthar_2024_05_28",
+      "manipur_irang_2024_05_29",
+      "meghalaya_kuliang_2024_06_18",
+      "arunachal_babuk_2024_07_04",
+      "arunachal_palizi_2024_07_16",
+      "nagaland_dzuza_2024_08_18",
+      "nagaland_dzudza_2024_08_20",
+      "nagaland_pherima_2024_09_03",
+      "nagaland_pherima_2024_09_04",
+      "manipur_nungdalal_2025_03_15"
+    ],
+    "val_events": [
+      "arunachal_bana_seppa_2025_06_01",
+      "arunachal_tawang_2025_06_01",
+      "sikkim_chungthang_2025_06_01",
+      "assam_jatinga_2025_06_24"
+    ],
+    "test_events": [
+      "noney_nhb37_landslide_2025_07_16",
+      "assam_dima_hasao_2025_07_16",
+      "tripura_nh208_kailashahar_2025_09_12",
+      "assam_lumding_2025_09_14"
+    ],
+    "n_train_events": 15,
+    "n_val_events": 4,
+    "n_test_events": 4,
+    "n_test_positives": 12,
+    "chronological": true,
+    "split_by": "event (chronological; no sample leakage)",
+    "training_period": {
+      "start": "2017-07-01T00:00:00",
+      "end": "2025-03-14T00:00:00"
+    },
+    "validation_period": {
+      "start": "2025-05-18T00:00:00",
+      "end": "2025-06-23T00:00:00"
+    },
+    "test_period": {
+      "start": "2025-07-02T00:00:00",
+      "end": "2025-09-13T00:00:00"
+    }
+  },
+  "threshold_selection": {
+    "strategy": "target_recall_met_max_precision",
+    "target_recall": 0.7,
+    "precision_floor": 0.3,
+    "validation_precision": 0.4444444444444444,
+    "validation_recall": 1.0,
+    "validation_f1": 0.6153846153846154
+  },
+  "calibration": {
+    "method": "isotonic_on_validation",
+    "optional": true,
+    "calibrator_fitted": true,
+    "note": "Calibration is optional and fit only on validation data; the current validation set is very small.",
+    "calibrator_file": "data\\models\\prod_real_temporal_2026-08-28_121550_9912f632_calib.json",
+    "calibrator_sha256": "5eaa662761c4cac74686f8cfb687cbfc3380400179d32b7a39a397e313235216"
+  },
+  "test_threshold": 0.3529411554336548,
+  "test_metrics": {
+    "n": 32,
+    "n_pos": 12,
+    "roc_auc": 0.5645833333333334,
+    "avg_precision": 0.47181372549019607,
+    "precision": 0.375,
+    "recall": 0.5,
+    "f1": 0.42857142857142855,
+    "false_negatives": 6,
+    "false_positives": 10,
+    "false_negative_rate": 0.5,
+    "confusion_matrix": [
+      [
+        10,
+        10
+      ],
+      [
+        6,
+        6
+      ]
+    ],
+    "threshold": 0.3529411554336548,
+    "brier_score": 0.2818604831267457,
+    "recall_at_top_k": {
+      "top_10pct": {
+        "n_selected": 4,
+        "positives_found": 3,
+        "recall": 0.25
+      },
+      "top_25pct": {
+        "n_selected": 8,
+        "positives_found": 6,
+        "recall": 0.5
+      }
+    }
+  },
+  "baselines": {
+    "majority_no_disruption": {
+      "n": 32,
+      "n_pos": 12,
+      "roc_auc": 0.5,
+      "avg_precision": 0.375,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_negatives": 12,
+      "false_positives": 0,
+      "false_negative_rate": 1.0,
+      "confusion_matrix": [
+        [
+          20,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ],
+      "threshold": 0.5,
+      "brier_score": 0.375
+    },
+    "rainfall_7day_threshold": {
+      "n": 32,
+      "n_pos": 12,
+      "roc_auc": 0.45416666666666666,
+      "avg_precision": 0.34627525252525254,
+      "precision": 0.375,
+      "recall": 1.0,
+      "f1": 0.5454545454545454,
+      "false_negatives": 0,
+      "false_positives": 20,
+      "false_negative_rate": 0.0,
+      "confusion_matrix": [
+        [
+          0,
+          20
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "threshold": 0.0,
+      "brier_score": 0.38682518810723937,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.375,
+        "validation_recall": 1.0,
+        "validation_f1": 0.5454545454545454
+      }
+    },
+    "rainfall_30day_threshold": {
+      "n": 32,
+      "n_pos": 12,
+      "roc_auc": 0.45416666666666666,
+      "avg_precision": 0.36597222222222225,
+      "precision": 0.375,
+      "recall": 1.0,
+      "f1": 0.5454545454545454,
+      "false_negatives": 0,
+      "false_positives": 20,
+      "false_negative_rate": 0.0,
+      "confusion_matrix": [
+        [
+          0,
+          20
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "threshold": 0.0,
+      "brier_score": 0.4029215976331361,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.375,
+        "validation_recall": 1.0,
+        "validation_f1": 0.5454545454545454
+      }
+    },
+    "logistic_regression": {
+      "n": 32,
+      "n_pos": 12,
+      "roc_auc": 0.6,
+      "avg_precision": 0.5218029062669243,
+      "precision": 0.75,
+      "recall": 0.25,
+      "f1": 0.375,
+      "false_negatives": 9,
+      "false_positives": 1,
+      "false_negative_rate": 0.75,
+      "confusion_matrix": [
+        [
+          19,
+          1
+        ],
+        [
+          9,
+          3
+        ]
+      ],
+      "threshold": 0.7701440152932331,
+      "brier_score": 0.2598432307391304,
+      "threshold_selection": {
+        "strategy": "target_recall_met_max_precision",
+        "target_recall": 0.7,
+        "precision_floor": 0.3,
+        "validation_precision": 0.5555555555555556,
+        "validation_recall": 0.8333333333333334,
+        "validation_f1": 0.6666666666666666
+      }
+    }
+  },
+  "baseline_comparison": {
+    "beats_all_comparable_baselines_on_roc_auc_and_avg_precision": false,
+    "baselines_beaten_on_both": [
+      "majority_no_disruption",
+      "rainfall_7day_threshold",
+      "rainfall_30day_threshold"
+    ],
+    "statement": "XGBoost does not beat every comparable baseline on both ROC-AUC and average precision; model advantage is unproven."
+  },
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 2,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "eval_metric": "logloss",
+    "random_state": 2026
+  },
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "elevation_m",
+    "slope_degrees",
+    "rain_intensity_1_vs_7",
+    "rain_intensity_3_vs_14",
+    "rain_concentration_3_in_7",
+    "rain_trend_1_vs_3",
+    "rain_cumul_ratio_7_vs_30",
+    "terrain_known",
+    "slope_x_rain7",
+    "slope_x_rain30",
+    "elev_x_slope"
+  ],
+  "model_file": "data\\models\\prod_real_temporal_2026-08-28_121550_9912f632.ubj",
+  "model_sha256": "ca48db58b1b2808de92c5680cbdd4e053b518d2d1f5d616cd84609a5c09e45c5",
+  "feature_spec_file": "data\\models\\prod_real_temporal_2026-08-28_121550_9912f632_features.json",
+  "feature_spec_sha256": "f497f32155ceda4f4d5aa9ad18fa97ff130f2351cb2af6c9c8d644798575ecd5",
+  "risk_policy_file": "data\\models\\risk_policy_2026-08-28_121550_9912f632.json",
+  "risk_policy_sha256": "42507fb1dcb6a94bf98c83f38a72df27bf1783eaf55b80d3da066ff08ec0ef90"
+}

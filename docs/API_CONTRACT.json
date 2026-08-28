@@ -1,0 +1,192 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NER-Nav Hazard Prediction API Contract",
+  "version": "2.0.0",
+  "description": "JSON schema for the road disruption prediction endpoint. The ML service produces this output; the backend consumes it.",
+
+  "PredictionRequest": {
+    "type": "object",
+    "required": ["road_segment_id", "prediction_timestamp", "features"],
+    "properties": {
+      "road_segment_id": {
+        "type": "string",
+        "description": "Versioned internal segment ID. OSM way IDs are source identifiers only; the current system has a DATA GAP here.",
+        "examples": ["44884968"]
+      },
+      "ref": {
+        "type": "string",
+        "description": "NH/SH reference",
+        "examples": ["NH37", "NH27", "NH208A"]
+      },
+      "prediction_timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO 8601 timestamp of when the prediction is made"
+      },
+      "features": {
+        "type": "object",
+        "required": [
+          "rainfall_1day", "rainfall_3day", "rainfall_7day",
+          "rainfall_14day", "rainfall_30day",
+          "elevation_m", "slope_degrees"
+        ],
+        "properties": {
+          "rainfall_1day": {"type": ["number", "null"], "description": "mm, last 1 calendar day"},
+          "rainfall_3day": {"type": ["number", "null"], "description": "mm, last 3 calendar days"},
+          "rainfall_7day": {"type": ["number", "null"], "description": "mm, last 7 calendar days"},
+          "rainfall_14day": {"type": ["number", "null"], "description": "mm, last 14 calendar days"},
+          "rainfall_30day": {"type": ["number", "null"], "description": "mm, last 30 calendar days"},
+          "elevation_m": {"type": ["number", "null"], "description": "meters above sea level"},
+          "slope_degrees": {"type": ["number", "null"], "description": "road segment average slope"}
+        }
+      }
+    }
+  },
+
+  "PredictionResponse": {
+    "type": "object",
+    "required": [
+      "road_segment_id", "prediction_timestamp", "prediction_horizon_days",
+      "disruption_probability", "risk_level", "top_contributing_factors",
+      "model_version", "dataset_version", "feature_version",
+      "operating_threshold", "operating_decision", "data_quality"
+    ],
+    "properties": {
+      "road_segment_id": {
+        "type": "string"
+      },
+      "prediction_timestamp": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "prediction_horizon_days": {
+        "type": "integer",
+        "const": 7,
+        "description": "Look-ahead window in days"
+      },
+      "raw_probability": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Uncalibrated model output"
+      },
+      "calibrated_probability": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "After isotonic calibration on validation set"
+      },
+      "disruption_probability": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Same as calibrated_probability; the final probability the risk engine consumes"
+      },
+      "risk_level": {
+        "type": "string",
+        "enum": ["LOW", "MEDIUM", "HIGH"],
+        "description": "Derived from disruption_probability: HIGH >= 0.7, MEDIUM >= 0.4, LOW < 0.4"
+      },
+      "operating_threshold": {
+        "type": "number",
+        "description": "Frozen model alert threshold selected on validation data"
+      },
+      "operating_decision": {
+        "type": "string",
+        "enum": ["ALERT", "NO_ALERT"],
+        "description": "Model operating decision; separate from business risk level"
+      },
+      "top_contributing_factors": {
+        "type": "array",
+        "maxItems": 5,
+        "items": {
+          "type": "object",
+          "required": ["feature", "value", "contribution"],
+          "properties": {
+            "feature": {"type": "string"},
+              "value": {"type": ["number", "null"]},
+            "contribution": {
+              "type": "number",
+              "description": "TreeSHAP contribution. Positive = pushes probability toward disruption; negative = pushes toward safe"
+            }
+          }
+        },
+        "description": "Top 5 features by absolute contribution, sorted descending"
+      },
+      "model_version": {
+        "type": "string",
+        "description": "Identifier of the model version used"
+      },
+      "dataset_version": {"type": "string"},
+      "feature_version": {"type": "string"},
+      "risk_policy_version": {"type": "string"},
+      "model_readiness_status": {
+        "type": "string",
+        "description": "Evidence-gate status; not derived from the individual prediction"
+      },
+      "data_quality": {
+        "type": "object",
+        "required": ["weather_freshness", "ood_features", "confidence_flags", "low_confidence"],
+        "properties": {
+          "weather_freshness": {
+            "type": "object",
+            "properties": {
+              "status": {"type": "string", "enum": ["FRESH", "STALE", "EXPIRED", "MISSING_METADATA"]},
+              "age_hours": {"type": ["number", "null"]}
+            }
+          },
+          "ood_features": {"type": "array", "items": {"type": "string"}},
+          "confidence_flags": {"type": "array", "items": {"type": "string"}},
+          "low_confidence": {"type": "boolean"}
+        }
+      },
+      "explanation": {
+        "type": "object",
+        "properties": {
+          "risk_factors": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Human-readable risk factor descriptions"
+          },
+          "data_gaps": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Known missing data for this prediction"
+          }
+        }
+      }
+    }
+  },
+
+  "RiskEngineInput": {
+    "type": "object",
+    "description": "The ML prediction is ONE input to the risk engine. The risk engine combines it with operational context to produce the final alert.",
+    "properties": {
+      "ml_prediction": {"$ref": "#/PredictionResponse"},
+      "operational_context": {
+        "type": "object",
+        "properties": {
+          "road_status": {"type": "string", "enum": ["open", "restricted", "closed", "unknown"]},
+          "last_field_report_timestamp": {"type": ["string", "null"], "format": "date-time"},
+          "active_alerts_count": {"type": "integer", "minimum": 0},
+          "weather_warning_active": {"type": "boolean"}
+        }
+      }
+    }
+  },
+
+  "AlertOutput": {
+    "type": "object",
+    "properties": {
+      "alert_id": {"type": "string"},
+      "road_segment_id": {"type": "string"},
+      "alert_level": {"type": "string", "enum": ["INFO", "WARNING", "CRITICAL"]},
+      "message": {"type": "string"},
+      "disruption_probability": {"type": "number"},
+      "risk_level": {"type": "string"},
+      "top_contributing_factors": {"type": "array"},
+      "created_at": {"type": "string", "format": "date-time"},
+      "model_version": {"type": "string"}
+    }
+  }
+}
