@@ -30,6 +30,19 @@ For each candidate event you find:
 ======================================================================
 Search by NH + state + year. Best real sources:
 
+FIELD FINDING (2026-08-28): ReliefWeb's curated India sitreps (Sphere
+India / HAI / ECHO / IFRC) are date+district+impact AGGREGATES, e.g. "roads
+blocked at 83 locations across Mizoram", "NH-less district road disruption
+in Dhemaji/Dibrugarh". They give solid DATES and corroboration but almost
+never name a specific OSM-resolvable NH way id per location. So: use them to
+(a) discover which districts/legacales were hit on which dates, and (b) as
+provenance corroboration -- but DO NOT fabricate an OSM way association from
+a district-level mention; that violates the "source-supported confirmed
+road" rule and weakens label quality. For OSM-granularity labels you still
+need per-incident sources (state PWD / DDMA / news) that name the NH +
+village. Tooling: scripts/collect_reliefweb_html.py (no-auth scrape, see
+data/raw/hazards/reliefweb/) + scripts/screen_reliefweb_report.py.
+
 - IMD heavy-rain / landslide alerts:  https://mausam.imd.gov.in/
 - NDMA event reports:                https://ndma.gov.in/
 - Assam Flood Control (floodample):  https://floodample.gov.in/
