@@ -167,6 +167,7 @@ site/
 
 # Python virtual environment
 .venv/
+.venv-clean/
 
 # Python cache
 __pycache__/
