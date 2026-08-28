@@ -560,6 +560,12 @@ def main() -> int:
     feature_version = feature_schema_version(FEATURES)
     tag = (f"{trained_at.strftime('%Y-%m-%d_%H%M%S')}_"
            f"{dataset_sha256[:8]}")
+    # Capture source-tree provenance BEFORE writing any artifacts. Writing the
+    # model files below creates new untracked files under data/models/ (a
+    # tracked directory), so evaluating `git status` AFTER those writes would
+    # always report a dirty tree. The version must reflect the tree state at
+    # train start, not the state after this run's own artifacts are created.
+    code_version_record = code_version()
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     ubj_path = MODEL_DIR / f"prod_real_temporal_{tag}.ubj"
     json_path = MODEL_DIR / f"prod_real_temporal_{tag}.json"
@@ -608,7 +614,7 @@ def main() -> int:
         "dataset_version": dataset_version,
         "dataset_sha256": dataset_sha256,
         "feature_version": feature_version,
-        "code_version": code_version(),
+        "code_version": code_version_record,
         "training_timestamp": trained_at.isoformat(),
         "demo_ready": demo_ready,
         "production_ready": production_ready,

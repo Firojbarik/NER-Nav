@@ -78,6 +78,12 @@ and a known environment reproduces the same bundles.
   (`code_version()` in `scripts/train_production_risk_model.py:83`). Training with a
   dirty tree sets `working_tree_dirty: true` and breaks the reproducibility claim.
   Sequence must be: add events → **commit** → then `python scripts/rebuild_pipeline.py`.
+- **`working_tree_dirty` is captured at train start.** `code_version()` is evaluated
+  BEFORE any model artifacts are written (`scripts/train_production_risk_model.py`),
+  because writing the new model bundle into the tracked `data/models/` directory would
+  otherwise make `git status` non-empty and the flag would always read `true`. For a
+  clean record, the working tree (including untracked scratch files and stale bundles)
+  must be clean at the moment training begins.
 - **Clean-env rebuild steps:**
   ```
   git checkout <owning-commit>          # clean tree
