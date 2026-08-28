@@ -45,6 +45,8 @@ CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
     ("assam_jatinga_2025_06_24", 239060064, "NH27", "2025-06-24"),
     ("noney_nhb37_landslide_2025_07_16", 44884968, "NH37", "2025-07-16"),
     ("assam_dima_hasao_2025_07_16", 386397330, "NH27", "2025-07-16"),
+    ("manipur_chiangpi_nh102b_2025_07_29", 242646804, "NH102B", "2025-07-29"),
+    ("nagaland_tsiesema_nh2_2025_08_25", 44886105, "NH2", "2025-08-25"),
     ("tripura_nh208_kailashahar_2025_09_12", 138303255, "NH208A", "2025-09-12"),
     ("assam_lumding_2025_09_14", 311653434, "NH27", "2025-09-14"),
 ]
