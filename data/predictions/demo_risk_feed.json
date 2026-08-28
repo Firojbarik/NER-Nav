@@ -1,0 +1,247 @@
+{
+  "generated_at": "2026-08-28T22:40:40.251405+05:30",
+  "anchor_date": "2026-07-31",
+  "model_version": "2026-08-28_151030_b7486dea",
+  "model_status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+  "operating_threshold": 0.4000000059604645,
+  "risk_policy": {
+    "version": "1.0.0",
+    "low_below": 0.4,
+    "high_at_or_above": 0.7,
+    "note": "Business risk bands are separate from the model operating threshold."
+  },
+  "caveat": "Limited-confidence demo model trained/evaluated from 192 samples across 24 events (72 positives, 120 negatives). Only 4 future events are in the held-out test split; negative labels include assumed-unaffected roads. This is not production-safe.",
+  "segments": [
+    {
+      "osm_id": 751071339,
+      "ref": "NH2",
+      "state": "NAGALAND",
+      "district": "KOHIMA",
+      "latitude": 25.559521,
+      "longitude": 94.133876,
+      "elevation_m": 1863.0,
+      "slope_degrees": 24.154748916625977,
+      "rainfall": {
+        "1day": 21.12,
+        "3day": 21.12,
+        "7day": 21.12,
+        "14day": 221.88,
+        "30day": 384.94
+      },
+      "disruption_probability": 0.75,
+      "risk_level": "HIGH",
+      "operating_decision": "ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 1353575336,
+      "ref": "NH29",
+      "state": "NAGALAND",
+      "district": "KOHIMA",
+      "latitude": 25.700733,
+      "longitude": 94.043888,
+      "elevation_m": 1056.0,
+      "slope_degrees": 16.288354873657227,
+      "rainfall": {
+        "1day": 25.9,
+        "3day": 51.8,
+        "7day": 51.8,
+        "14day": 222.13,
+        "30day": 388.53
+      },
+      "disruption_probability": 0.75,
+      "risk_level": "HIGH",
+      "operating_decision": "ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 1053899051,
+      "ref": "NH27",
+      "state": "ASSAM",
+      "district": "DIMA HASAO",
+      "latitude": 25.086616,
+      "longitude": 92.816372,
+      "elevation_m": 140.0,
+      "slope_degrees": 8.754015922546387,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 24.93,
+        "7day": 74.28,
+        "14day": 145.34,
+        "30day": 294.0
+      },
+      "disruption_probability": 0.4,
+      "risk_level": "MEDIUM",
+      "operating_decision": "ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 83700092,
+      "ref": "NH510",
+      "state": "SIKKIM",
+      "district": "NAMCHI",
+      "latitude": 27.242189,
+      "longitude": 88.476708,
+      "elevation_m": 354.0,
+      "slope_degrees": 15.183204650878906,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 0.0,
+        "7day": 76.26,
+        "14day": 160.49,
+        "30day": 251.77
+      },
+      "disruption_probability": 0.4,
+      "risk_level": "MEDIUM",
+      "operating_decision": "ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 666960671,
+      "ref": "NH6",
+      "state": "MEGHALAYA",
+      "district": "EAST JAINTIA HILLS",
+      "latitude": 25.044066,
+      "longitude": 92.421615,
+      "elevation_m": 108.0,
+      "slope_degrees": 19.097087860107422,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 44.42,
+        "7day": 79.43,
+        "14day": 164.53,
+        "30day": 262.57
+      },
+      "disruption_probability": 0.4,
+      "risk_level": "MEDIUM",
+      "operating_decision": "ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 606061034,
+      "ref": "NH10",
+      "state": "SIKKIM",
+      "district": "PAKYONG",
+      "latitude": 27.181389,
+      "longitude": 88.512685,
+      "elevation_m": 362.0,
+      "slope_degrees": 1.9697160720825195,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 0.0,
+        "7day": 33.27,
+        "14day": 136.25,
+        "30day": 241.73
+      },
+      "disruption_probability": 0.3333,
+      "risk_level": "LOW",
+      "operating_decision": "NO_ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 1260641175,
+      "ref": "NH13",
+      "state": "ARUNACHAL PRADESH",
+      "district": "WEST KAMENG",
+      "latitude": 27.493573,
+      "longitude": 92.097712,
+      "elevation_m": 3848.0,
+      "slope_degrees": 27.819665908813477,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 0.0,
+        "7day": 4.21,
+        "14day": 4.21,
+        "30day": 5.39
+      },
+      "disruption_probability": 0.3333,
+      "risk_level": "LOW",
+      "operating_decision": "NO_ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN",
+        "OUT_OF_DISTRIBUTION"
+      ]
+    },
+    {
+      "osm_id": 242645601,
+      "ref": "NH102B",
+      "state": "MANIPUR",
+      "district": "PHERZAWL",
+      "latitude": 24.173717,
+      "longitude": 93.373275,
+      "elevation_m": 1141.0,
+      "slope_degrees": 16.269582748413086,
+      "rainfall": {
+        "1day": 8.48,
+        "3day": 16.96,
+        "7day": 25.45,
+        "14day": 99.25,
+        "30day": 195.8
+      },
+      "disruption_probability": 0.0,
+      "risk_level": "LOW",
+      "operating_decision": "NO_ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 138303255,
+      "ref": "NH208A",
+      "state": "TRIPURA",
+      "district": "UNAKOTI",
+      "latitude": 24.227644,
+      "longitude": 92.037133,
+      "elevation_m": 43.0,
+      "slope_degrees": 1.838234305381775,
+      "rainfall": {
+        "1day": 8.56,
+        "3day": 59.95,
+        "7day": 108.11,
+        "14day": 149.81,
+        "30day": 326.41
+      },
+      "disruption_probability": 0.0,
+      "risk_level": "LOW",
+      "operating_decision": "NO_ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    },
+    {
+      "osm_id": 242395881,
+      "ref": "NH37",
+      "state": "MANIPUR",
+      "district": "TAMENGLONG",
+      "latitude": 24.767113,
+      "longitude": 93.326287,
+      "elevation_m": 287.0,
+      "slope_degrees": 26.959569931030273,
+      "rainfall": {
+        "1day": 0.0,
+        "3day": 24.38,
+        "7day": 24.38,
+        "14day": 115.42,
+        "30day": 230.54
+      },
+      "disruption_probability": 0.0,
+      "risk_level": "LOW",
+      "operating_decision": "NO_ALERT",
+      "confidence_flags": [
+        "WEATHER_FRESHNESS_UNKNOWN"
+      ]
+    }
+  ]
+}

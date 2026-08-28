@@ -1,0 +1,9 @@
+{
+  "model_version": "2026-08-28_151030_b7486dea",
+  "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+  "production_ready": false,
+  "intended_use": "Hackathon demonstration and offline research only",
+  "not_for": "Production routing, emergency response, or public safety decisions",
+  "caveat": "Limited-confidence demo model trained/evaluated from 192 samples across 24 events (72 positives, 120 negatives). Only 4 future events are in the held-out test split; negative labels include assumed-unaffected roads. This is not production-safe.",
+  "updated_at": "2026-08-28T22:41:00+05:30"
+}

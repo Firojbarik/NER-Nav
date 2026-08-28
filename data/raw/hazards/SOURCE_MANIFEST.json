@@ -1,0 +1,39 @@
+{
+  "project": "NER-Nav",
+  "purpose": "Real historical hazard-event data acquisition for road-disruption risk modeling",
+  "sources": [
+    {
+      "source_id": "nrsc_landslide_atlas",
+      "provider": "National Remote Sensing Centre / ISRO",
+      "dataset_name": "Landslide Atlas of India",
+      "official_page": "https://www.nrsc.gov.in/nrscnew/resources_atlas_landslide.php",
+      "coverage": "India landslide-vulnerable regions including North Eastern Region",
+      "reported_period": "1998-2022",
+      "inventory_types": [
+        "seasonal",
+        "event-based",
+        "route-wise"
+      ],
+      "target_states": [
+        "Arunachal Pradesh",
+        "Assam",
+        "Manipur",
+        "Meghalaya",
+        "Mizoram",
+        "Nagaland",
+        "Sikkim",
+        "Tripura"
+      ],
+      "status": "PENDING_LOCAL_ACQUISITION",
+      "access_method": "Official NRSC/Bhuvan source",
+      "license_status": "MUST_VERIFY_BEFORE_TRAINING",
+      "download_date": null,
+      "original_filename": null,
+      "sha256": null,
+      "spatial_resolution": null,
+      "geometry_type": null,
+      "temporal_resolution": null,
+      "notes": "Do not scrape NDEM. Preserve original source before transformation."
+    }
+  ]
+}

@@ -163,3 +163,39 @@ blob-report/
 # Generated documentation
 # -------------------------
 site/
+
+
+# Python virtual environment
+.venv/
+.venv-clean/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Python package build metadata
+*.egg-info/
+
+# Large raw GIS datasets
+data/raw/**/*.zip
+data/raw/**/*.shp
+data/raw/**/*.dbf
+data/raw/**/*.sbn
+data/raw/**/*.sbx
+data/raw/**/*.shx
+data/raw/**/*.osm.pbf
+
+# Raw source PDFs
+data/raw/**/*.pdf
+
+# Large downloadable raster datasets (re-fetchable; see docs/)
+data/raw/terrain/**/*.tif
+data/raw/terrain/**/*.tiff
+data/raw/terrain/**/*.hdr
+data/raw/terrain/**/*.tfw
+data/raw/weather/**/*.gz
+data/raw/weather/**/*.tif
+
+# Generated/processed datasets
+data/processed/

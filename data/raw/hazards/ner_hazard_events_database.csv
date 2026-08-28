@@ -1,0 +1,2 @@
+event_id,event_date,event_type,state,location_name,latitude,longitude,affected_road,source,severity,notes
+ner_sikkim_landslide_2016_08_13,2016-08-13,landslide,Sikkim,Mantam,27.5397,88.5007,Passingdang-Mantam Road,NRSC report,high,300m road washed away; 8 villages cut off; Kanka bridge submerged
