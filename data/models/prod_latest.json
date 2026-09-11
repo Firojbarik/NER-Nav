@@ -1,7 +1,7 @@
 {
-  "model_version": "2026-09-11_212713_1adf08f3",
-  "report_file": "data\\models\\prod_report_2026-09-11_212713_1adf08f3.json",
+  "model_version": "2026-09-11_223631_65913da9",
+  "report_file": "data\\models\\prod_report_2026-09-11_223631_65913da9.json",
   "status": "GATED_LOW_CONFIDENCE",
   "production_ready": false,
-  "updated_at": "2026-09-11T21:27:13.806105+05:30"
+  "updated_at": "2026-09-11T22:36:31.417825+05:30"
 }
