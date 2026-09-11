@@ -112,6 +112,12 @@ ml/models/*
 ml/data/*
 !ml/data/.gitkeep
 
+# Old/one-off model bundles and reports (keep only the current prod/demo bundles tracked)
+data/models/prod_real_temporal_2026-08-28_*.ubj
+data/models/prod_real_temporal_2026-08-28_*.json
+data/models/prod_report_2026-08-28_*.json
+data/models/risk_policy_2026-08-28_*.json
+
 # -------------------------
 # Generated project data
 # -------------------------
