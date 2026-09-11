@@ -194,6 +194,8 @@ def main() -> None:
 
     report = {
         "model_version": tag,
+        "model_file": str(ubj),
+        "feature_spec": str(feat_file),
         "dataset": str(DATASET),
         "dataset_sha256": dataset_sha256,
         "dataset_version": dataset_version,

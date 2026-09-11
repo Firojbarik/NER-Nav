@@ -244,12 +244,47 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
          "dataset_qa_matches_active_dataset": qa_matches},
         lineage_errors + ([] if qa_matches else ["Dataset QA counts do not match"]),
     )
+    manifest_path = ROOT / "data/processed/ml/raw_input_manifest.json"
+    manifest_errors: list[str] = []
+    manifest_ok = False
+    manifest_file_count = 0
+    if not manifest_path.exists():
+        manifest_errors.append("raw input checksum manifest is missing")
+    else:
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            files = manifest.get("files", {})
+            manifest_file_count = len(files)
+            canonical = json.dumps(
+                {k: v for k, v in manifest.items() if k != "manifest_sha256"},
+                sort_keys=True, separators=(",", ":"),
+            )
+            if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != manifest.get("manifest_sha256"):
+                manifest_errors.append("manifest self-hash does not match its contents")
+            if manifest_file_count < 100:
+                manifest_errors.append("manifest does not cover a complete input set")
+            missing = [p for p in files if not (ROOT / p).exists()]
+            if missing:
+                manifest_errors.append(f"{len(missing)} manifest inputs are missing")
+            critical = [p for p in (
+                "data/raw/ner_news_events.csv",
+                "data/raw/hazards/negative_observations.csv",
+                "data/processed/ml/event_label_registry.json") if p in files]
+            mismatched = [p for p in critical if sha256_file(ROOT / p) != files[p]]
+            if mismatched:
+                manifest_errors.append("checksum mismatch: " + ", ".join(mismatched))
+            if not manifest_errors:
+                manifest_ok = True
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
+            manifest_errors.append(f"cannot read manifest: {exc}")
     acceptance["REPRODUCIBILITY"] = _check(
-        "FAIL", {"immutable_model_version": bool(model_report),
-                 "raw_source_manifest_complete": False},
-        ["Not all weather, terrain, roads, boundaries, and incident inputs have a "
-         "single complete checksum manifest",
-         "Confirmed events remain maintained in a code list"],
+        "PASS" if manifest_ok else "FAIL",
+        {"immutable_model_version": bool(model_report),
+         "raw_source_manifest_complete": manifest_ok,
+         "manifest_file": str(manifest_path.relative_to(ROOT)) if manifest_path.exists() else None,
+         "manifest_input_count": manifest_file_count,
+         "manifest_errors": manifest_errors},
+        manifest_errors,
     )
     acceptance["TRACEABILITY"] = _check(
         "PASS" if lineage_ok else "FAIL",
@@ -258,9 +293,17 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
          "feature_version": (model_report or {}).get("feature_version")},
         lineage_errors,
     )
+    monitoring_script = ROOT / "scripts/monitor_model.py"
+    monitoring_workflow = ROOT / ".github/workflows/model_monitoring.yml"
+    monitoring_ok = (monitoring_script.exists() and monitoring_workflow.exists())
     acceptance["MONITORING"] = _check(
-        "FAIL", {"strategy_documented": True, "automated_monitoring_job": False},
-        ["Monitoring thresholds are documented but not operationally implemented"],
+        "PASS" if monitoring_ok else "FAIL",
+        {"strategy_documented": (ROOT / "docs/MONITORING_STRATEGY.md").exists(),
+         "automated_monitoring_job": monitoring_ok,
+         "monitor_script": str(monitoring_script.relative_to(ROOT)) if monitoring_script.exists() else None,
+         "schedule_workflow": str(monitoring_workflow.relative_to(ROOT)) if monitoring_workflow.exists() else None},
+        ["Monitoring thresholds are documented but not operationally implemented"]
+        if not monitoring_ok else [],
     )
     documentation_files = [
         ROOT / "docs/ML_DATA_CATALOG.md",

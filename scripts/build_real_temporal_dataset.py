@@ -65,6 +65,7 @@ from ml.features.temporal_design import (  # noqa: E402
 )
 
 ROAD_FILE = Path("data/processed/roads/ner_roads_districts.gpkg")
+ROAD_IDENTITY_FILE = Path("data/processed/roads/road_segment_identity.parquet")
 TERRAIN_FILE = Path("data/processed/terrain/road_terrain_features.parquet")
 RAINFALL_FILE = Path("data/processed/weather/road_rainfall_features_temporal.parquet")
 NEGATIVE_OBSERVATIONS_FILE = Path("data/raw/hazards/negative_observations.csv")
@@ -160,6 +161,12 @@ def main() -> None:
     road_cols = ["osm_id", "ref", "highway", "district", "state", "bridge"]
     rd = roads[[c for c in road_cols if c in roads.columns]].copy()
     rd = rd.merge(terrain, on="osm_id", how="left")
+
+    identity = pd.read_parquet(ROAD_IDENTITY_FILE)
+    identity["osm_id"] = pd.to_numeric(
+        identity["source_osm_id"], errors="coerce").astype("Int64")
+    rd = rd.merge(identity[["osm_id", "road_segment_id"]], on="osm_id", how="left")
+    rd["road_segment_id"] = rd["road_segment_id"].astype("object")
 
     # ------------------------------------------------------------------ #
     # Corridor negatives (unaffected same-NH trunk roads) per event at E-3
@@ -281,7 +288,7 @@ def main() -> None:
     )
 
     feature_cols = [
-        "event_id", "osm_id", "ref", "highway", "district", "state",
+        "event_id", "osm_id", "road_segment_id", "ref", "highway", "district", "state",
         "prediction_time", "label", "sample_kind", "label_source",
         "elevation_m", "slope_degrees",
     ] + RAINFALL_COLS + ["rainfall_days_available", "highway_prior", "bridge_flag",
