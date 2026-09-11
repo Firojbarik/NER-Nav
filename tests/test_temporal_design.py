@@ -76,7 +76,7 @@ class TestSampleDesign(unittest.TestCase):
 class TestNeededDates(unittest.TestCase):
     def test_prediction_dates_real_range(self):
         pdates = needed_prediction_dates()
-        self.assertEqual(pdates[0].isoformat(), "2017-07-01")
+        self.assertEqual(pdates[0].isoformat(), "2017-06-26")
         self.assertGreaterEqual(pdates[-1], date(2025, 9, 11))
 
     def test_chirps_dates_nonempty_and_in_past(self):

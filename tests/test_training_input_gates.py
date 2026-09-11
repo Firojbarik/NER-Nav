@@ -18,8 +18,8 @@ class TestTrainingInputGates(unittest.TestCase):
     def test_current_event_registry_is_complete_and_verified(self):
         result = validate_event_registry()
         self.assertEqual(result["status"], "PASS")
-        self.assertEqual(result["design_event_count"], 32)
-        self.assertEqual(result["verified_event_count"], 32)
+        self.assertEqual(result["design_event_count"], 38)
+        self.assertEqual(result["verified_event_count"], 38)
         self.assertFalse(result["errors"])
 
     def test_missing_negative_observation_file_is_a_data_gap(self):

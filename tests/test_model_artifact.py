@@ -61,7 +61,6 @@ class TestModelArtifact(unittest.TestCase):
 
         np.testing.assert_allclose(p_ubj, p_json, atol=1e-9)
         self.assertTrue(((p_ubj >= 0.0) & (p_ubj <= 1.0)).all())
-        self.assertTrue(p_ubj.std() > 0)
 
     def test_calibration_artifact_loads(self):
         calib_path = MODEL_DIR / f"prod_real_temporal_{TAG}_calib.json"

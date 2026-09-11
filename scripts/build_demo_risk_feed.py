@@ -45,7 +45,10 @@ OUTPUT = PROJECT_ROOT / "data" / "predictions" / "demo_risk_feed.json"
 
 WINDOWS = [1, 3, 7, 14, 30]
 LOOKBACK_DAYS = 30
-DEFAULT_TAG = "2026-08-28_151030_b7486dea"
+try:
+    DEFAULT_TAG = json.loads((MODEL_DIR / "demo_latest.json").read_text(encoding="utf-8"))["model_version"]
+except Exception:
+    DEFAULT_TAG = "2026-08-28_151030_b7486dea"
 
 
 def discover_chirps_files() -> list[tuple[date, Path]]:
