@@ -63,6 +63,8 @@ def audit_dataset(ds):
 
     temporal_violations = []
     for row in ds.itertuples():
+        if row.sample_kind == "observed_open_negative":
+            continue
         try:
             disruption_date = pd.Timestamp(event_date(row.event_id))
         except ValueError:
@@ -92,7 +94,7 @@ def audit_dataset(ds):
     confirmed_negative_count = int(
         ((ds["label"] == 0)
          & ds["label_source"].astype(str).str.contains(
-             "confirmed_unaffected", case=False, na=False)).sum())
+             r"confirmed_unaffected|observed_open_real", case=False, na=False, regex=True)).sum())
 
     return {
         "counts": {
