@@ -285,7 +285,56 @@ targets are not reachable from this evidence ecosystem.
 
 ---
 
-## 9. Honesty rules (non-negotiable)
+## 10. Training contamination diagnosis (2026-09)
+
+### 10.1 The 24 inadmissible rows poison the model signal
+
+All 24 corridor-level negatives carry clearance/reopening status
+(`OPEN_AFTER_CLEARANCE`, `FULLY_REOPENED`, `REOPENED_REGULATED`) and describe
+roads that WERE disrupted. They were nonetheless ingested as training
+negatives (`label=0`). The consequence:
+
+- Negative rows have **higher** mean rainfall than positives (rainfall_30day:
+  465mm vs 359mm), teaching the model "high rain = safe" — an inverted
+  signal.
+- Grouped-CV pooled ROC-AUC = 0.31 (worse than chance 0.5).
+- `enforce_training_input_gate()` checks file schema and label sources but
+  does NOT call `validate_negative_observation_quality()` — so the poisoned
+  rows pass into training.
+
+### 10.2 Why training cannot be fixed without additional clean negatives
+
+Excluding the 24 poisoned rows from the dataset (keeping only the 1 clean
+segment-scoped negative) leaves exactly **1 negative sample**. Under the
+hard audit constraints:
+
+- `VALIDATION` gate: `n_test_events >= 30`
+- `CALIBRATION` gate: `n_val_events >= 10`
+
+With 63 event groups (38 positive + 25 negative observations), the single
+clean negative sits at chronological group ~33. The maximum training fold
+size is 63 − 30 − 10 = **23 groups**, which cannot contain the clean
+negative. The training fold therefore has **zero** negatives, and XGBoost
+cannot fit (`Empty dataset at worker` / `predict_proba[:,1]` IndexError).
+
+### 10.3 Implication
+
+The `GATED_LOW_CONFIDENCE` state with a 0.31 grouped-CV is the **honest,
+trainable state given current data**. Any attempt to improve the MODEL gate
+requires at minimum:
+
+1. More clean, segment-scoped negatives (≥2 for a viable split, ideally ≥15
+   for meaningful two-class training) from **operational sources** (PWD/DDMA
+   daily "no disruption" lists, NHIDCL advisories, satellite change detection)
+   — the press/bulletin ecosystem cannot supply them.
+2. More confirmed positive events (Track B, `EVENT_COLLECTION_WORKFLOW.md`).
+
+The negative-contamination fix (section 10.1) should be applied once the
+clean-negative pool reaches ≥20 rows.
+
+---
+
+## 11. Honesty rules (non-negotiable)
 
 1. No fabricated, inferred, or absence-derived rows.
 2. The `evidence_note` quotes the article; the HTML is saved in `data/raw/`.
