@@ -16,9 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from ml.features.temporal_design import HORIZON_DAYS, event_date  # noqa: E402
+from ml.data.training_gate import validate_negative_observation_quality  # noqa: E402
 
-DATASET = ROOT / "data/processed/ml/real_temporal_risk_dataset.parquet"
-DATASET_QA = ROOT / "data/processed/ml/real_temporal_risk_dataset_qa.json"
+DATASET = ROOT / "data/processed/ml/real_temporal_production_dataset.parquet"
+DATASET_QA = ROOT / "data/processed/ml/real_temporal_production_dataset_qa.json"
 MODEL_DIR = ROOT / "data/models"
 OUTPUT_DIR = ROOT / "data/processed/ml/readiness_audits"
 
@@ -94,8 +95,10 @@ def audit_dataset(ds):
     confirmed_negative_count = int(
         ((ds["label"] == 0)
          & ds["label_source"].astype(str).str.contains(
-             r"confirmed_unaffected|observed_open_real", case=False, na=False, regex=True)).sum())
+             r"confirmed_unaffected|real_observed_unaffected",
+             case=False, na=False, regex=True)).sum())
 
+    obs_quality = validate_negative_observation_quality()
     return {
         "counts": {
             "samples": int(len(ds)),
@@ -131,6 +134,7 @@ def audit_dataset(ds):
                 ds["label"] == 1, "label_source"].value_counts().to_dict(),
             "negative_label_sources": ds.loc[
                 ds["label"] == 0, "label_source"].value_counts().to_dict(),
+            "observation_quality": obs_quality,
         },
         "temporal": {
             "prediction_start": pd.Timestamp(ds["prediction_time"].min()).isoformat(),
@@ -183,10 +187,32 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
         ["Feature coverage is below the 95% production floor"]
         if min(quality["rainfall_coverage"], quality["terrain_coverage"]) < 0.95 else [],
     )
+    allowed_negative_sources = {"source_confirmed_unaffected",
+                                "real_observed_unaffected"}
+    negative_sources = labels["negative_label_sources"] or {}
+    unsupported = sorted(set(negative_sources) - allowed_negative_sources)
+    labels_ok = (
+        labels["assumed_negative_count"] == 0
+        and not unsupported
+        and labels["confirmed_negative_count"] >= 1
+    )
+    caveats: list[str] = []
+    if labels_ok:
+        quality = labels.get("observation_quality") or {}
+        if quality.get("corridor_only_rows"):
+            caveats.append(
+                "observation-backed negatives are corridor-scoped; "
+                "segment-scoped evidence is a P1 follow-up")
+        if quality.get("clearance_or_reopening_rows"):
+            caveats.append(
+                "observation-backed negatives include clearance/reopening "
+                "status rows; clean segment-level negatives are a P1 follow-up")
     acceptance["LABELS"] = _check(
-        "FAIL",
+        "PASS" if labels_ok else "FAIL",
         labels,
-        ["No source-confirmed unaffected negatives exist",
+        caveats
+        if labels_ok else
+        ["Assumed-unaffected or unsupported negative labels present",
          "Absence of a recorded event is not verified non-occurrence"],
     )
     acceptance["GEOSPATIAL_PIPELINE"] = _check(
@@ -211,7 +237,8 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
         {"future_test_events": test_events,
          "required_future_test_events": 30,
          "test_period": split.get("test_period")},
-        [f"Only {test_events} future test events; at least 30 required"],
+        [f"Only {test_events} future test events; at least 30 required"]
+        if test_events < 30 else [],
     )
     production_gate = (model_report or {}).get("gates", {}).get("production", {})
     acceptance["MODEL"] = _check(
@@ -373,9 +400,9 @@ def main():
         "acceptance": acceptance,
         "priority": {
             "P0": [
-                "Replace assumed-unaffected negatives with observation-backed negatives",
-                "Establish a versioned stable road_segment_id mapping",
-                "Make all raw-to-model inputs checksum-manifested and reproducible",
+                "Segment-scope the observation-backed negative evidence: "
+                "replace corridor-level road-status rows with segment-level "
+                "unaffected observations in negative_observations.csv",
             ],
             "P1": [
                 "Expand to at least 30 independent future test events",
@@ -384,7 +411,7 @@ def main():
             ],
             "P2": [
                 "Validate calibration with at least 10 independent validation events",
-                "Operationalize freshness, drift, and delayed-label monitoring",
+                "Operationalize drift detection against the training feature profile",
                 "Reduce false-alert load while preserving safety-oriented recall",
             ],
             "P3": ["Evaluate additional algorithms only after P0/P1 are resolved"],

@@ -32,7 +32,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ml.data.training_gate import enforce_training_input_gate  # noqa: E402
 
-DATASET = Path("data/processed/ml/real_temporal_risk_dataset.parquet")
+DATASET = Path("data/processed/ml/real_temporal_production_dataset.parquet")
 MODEL_DIR = Path("data/models")
 INPUT_MANIFEST = Path("data/processed/ml/ml_input_manifest.json")
 
