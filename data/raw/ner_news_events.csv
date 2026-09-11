@@ -1,0 +1,51 @@
+event_id,event_date,event_type,state,district,location_name,latitude,longitude,affected_road,source,severity,duration_days
+ner_2017_001,2017-07-14,landslide,Nagaland,Kohima,Viswema Village,25.558,94.103,NH-29 (Kohima-Dimapur-Manipur link),nagalandpost.com,high,14
+ner_2022_001,2022-06-30,landslide,Manipur,Noney,Tupul railway construction site (near Ijei river),24.780,93.510,NH-37 corridor (Jiribam-Imphal),imphaltimes.com/nagalandpost.com,high,
+ner_2022_002,2022-06-16,landslide,Meghalaya,East Jaintia Hills,Lumshnong-Ratacherra 50-km stretch,25.190,92.404,NH-6,theshillongtimes.com,high,14
+ner_2023_001,2023-10-04,flood,Sikkim,Mangan,South Lhonak lake outburst (Chungthang downstream),27.608,88.645,NH-10 (washed out at multiple points),nenow.in/eastmojo.com,high,30
+ner_2023_002,2023-07-01,landslide,Meghalaya,East Jaintia Hills,Sonapur tunnel section,25.190,92.420,NH-6 (Jowai-Ratacherra),theshillongtimes.com,high,
+ner_2024_001,2024-09-04,landslide,Nagaland,Chumoukedima,Pherima & Pagla Pahar (6 killed),25.650,93.905,NH-29 (Dimapur-Kohima),nagalandpost.com,high,7
+ner_2024_002,2024-09-04,landslide,Nagaland,Chumoukedima,Tseipama-Piphema,25.610,93.870,NH-29,nagalandpost.com,medium,2
+ner_2024_003,2024-09-12,landslide,Nagaland,Chumoukedima,Pagala Pahar (multiple locations),25.630,93.900,NH-29,nagalandpost.com,high,3
+ner_2024_004,2024-08-18,landslide,Nagaland,Kohima,Dzudza Bridge (Sechu Zubza) KM163+980-164+030,25.690,94.020,NH-29 (Kohima-Dimapur),eastmojo.com/nenow.in,high,21
+ner_2024_005,2024-08-18,landslide,Nagaland,Kohima,Kiruphema-Peducha,25.720,93.990,NH-29,nagalandpost.com,high,14
+ner_2024_006,2024-09-09,landslide,Nagaland,Kohima,Old KMC dumping site,25.670,94.100,NH-29,eastmojo.com,medium,3
+ner_2024_007,2024-06-20,landslide,Meghalaya,East Jaintia Hills,Jowai-Malidor (7 critical locations),25.436,92.193,NH-6,theshillongtimes.com,high,
+ner_2024_008,2024-08-22,flood,Tripura,South Tripura,Udaipur-Sabroom section,23.240,91.640,NH-8 (damaged, landslips),nhidcl.com/Reuters,high,10
+ner_2025_001,2025-06-01,landslide,Nagaland,Kohima,Kisama (near Naga Heritage Village) KM192.050-192.150,25.600,94.110,NH-2 (Kohima-Mao),imphaltimes.com,high,10
+ner_2025_002,2025-06-04,landslide,Nagaland,Kohima,Phesama-Kisama,25.580,94.130,NH-2,ipr.nagaland.gov.in,high,7
+ner_2025_003,2025-03-15,landslide,Manipur,Tamenglong,Nungdalal (Nungba PS),24.650,93.350,NH-37 (Imphal-Silchar),nenow.in,medium,0.4
+ner_2025_004,2025-06-03,landslide,Manipur,Churachandpur,Guite Road (multiple sites, 93 state-wide),24.300,93.600,NH-102B (Churachandpur-Aizawl),nenow.in,medium,3
+ner_2025_005,2025-07-29,landslide,Manipur,Churachandpur,Chiangpi-D. Khawzim,24.200,93.450,NH-102B (Churachandpur-Aizawl),nenow.in,high,7
+ner_2025_006,2025-07-29,flood,Sikkim,Namchi (29 Mile, Teesta),Teesta embankment breach at 29 Mile,26.950,88.570,NH-10,nenow.in,high,2
+ner_2025_007,2025-07-29,landslide,Sikkim,Pakyong,Bardang (Singtam-Rangpo),27.210,88.530,NH-10,nenow.in,high,2
+ner_2025_008,2025-07-29,landslide,Sikkim,Gangtok,Singtam-Dikchu Road (Tintek Khola, Kokaley),27.260,88.560,Singtam-Dikchu Road,nenow.in,medium,3
+ner_2025_009,2025-07-29,landslide,Sikkim,Namchi,Phongla (Namthang-Namchi),27.150,88.370,Namthang-Namchi Road,nenow.in,medium,3
+ner_2025_010,2025-07-29,landslide,Sikkim,Pakyong,Chagelakha Turning Point,27.220,88.600,Pakyong road network,nenow.in,medium,2
+ner_2025_011,2025-07-29,mudslide,Sikkim,Gangtok,Pani House,27.320,88.610,Gangtok city road,nenow.in,low,1
+ner_2025_012,2025-08-03,landslide,Sikkim,Kalimpong (West Bengal),Tarkhola,27.060,88.620,NH-10 (Kalimpong-Sikkim),nenow.in,medium,0.2
+ner_2025_013,2025-08-03,road damage,Sikkim,Kalimpong (West Bengal),Swetijhora (NH-10 collapsed into Teesta),27.000,88.580,NH-10,nenow.in,high,10
+ner_2025_014,2025-05-30,landslide,Mizoram,Aizawl,Retaining wall collapse (rain-triggered),23.727,92.717,Aizawl city roads,eastmojo.com,high,2
+ner_2025_015,2025-06-25,landslide,Mizoram,Aizawl,NHIDCL slope works (hospital evacuated),23.730,92.720,Road beside hospital,eastmojo.com,high,2
+ner_2025_016,2025-06-03,landslide,Mizoram,Champhai,Champhai worst-hit of 598 landslides,23.456,93.329,Multiple state roads,eastmojo.com,medium,14
+ner_2025_017,2025-06-14,landslide,Meghalaya,Multiple districts,Statewide floods and landslides (15 dead),25.500,91.900,Multiple NH/state roads,eastmojo.com,high,
+ner_2026_001,2026-06-24,landslide,Assam,Dibrugarh,Joypur-Deomali via Dehing Patkai (Kathalguri Beat),27.476,95.560,NH-315A (Dibrugarh-Tirap),assamtribune.com,high,3
+ner_2026_002,2026-03-27,road damage,Assam,Sivasagar,Gammon bridge over Dikhow River (Konwarpur),26.983,94.633,NH-37,assamtribune.com,high,7
+ner_2026_003,2026-07-18,flood,Assam,Kamrup Metro,Jorabat,25.756,91.861,NH-27,assamtribune.com,medium,0.5
+ner_2026_004,2026-07-18,road damage,Assam,Kamrup Metro,Ninth Mile (Khanapara),25.720,91.880,NH-27 (uprooted tree),assamtribune.com,medium,0.5
+ner_2026_005,2026-06-24,landslide,Manipur,Tamenglong,Shanti Khunou-Rengpang (87 CRPF camp),24.900,93.450,NH-37 (Imphal-Silchar),nenow.in,high,2
+ner_2026_006,2026-07-12,landslide,Manipur,Senapati,Vaorei (Tadubi-Ukhrul),25.310,94.150,NH-102A,nenow.in,high,15
+ner_2026_007,2026-07-06,landslide,Mizoram,Lunglei,Bualte village (NH-54),22.880,92.700,NH-54 (cut off Lawngtlai-Siaha),nenow.in,high,4
+ner_2026_008,2026-07-10,road damage,Mizoram,Aizawl,Ngaizel rockfall,23.700,92.730,Aizawl-Thenzawl-Lunglei Highway,nenow.in,high,3
+ner_2026_009,2026-07-13,landslide,Arunachal Pradesh,West Kameng,Balipara-Charduar-Tawang Highway stretches,27.150,92.450,BCT Highway (NH13),nenow.in,medium,3
+ner_2026_010,2026-07-13,flood,Arunachal Pradesh,Lower Dibang Valley,Statewide floods/landslides (roads and bridges),28.100,95.900,Multiple roads/bridges,theshillongtimes.com/nenow.in,high,10
+ner_2026_011,2026-06-24,landslide,Sikkim,Gyalshing,Geyzing-Legship road,27.291,88.267,Geyzing-Legship Road,eastmojo.com,high,4
+ner_2026_012,2026-06-28,flood,Sikkim,Mangan,Bailey bridge over Phee Khola at Phidang (Dzongu),27.560,88.452,Phidang-Sankalang link,eastmojo.com,high,7
+ner_2026_013,2026-07-20,landslide,Sikkim,South Sikkim,Samardung tunnel (Mamring, Teesta-VI),27.145,88.555,NH-10 corridor access,eastmojo.com,high,
+ner_2026_014,2026-07-19,landslide,Nagaland,Mon,Mon town (Walo ward; 8 killed, town cut off),26.731,95.033,Mon-Tizit/Naginimora road links,thehindu.com/assamtribune.com,high,5
+ner_2026_015,2026-07-19,landslide,Nagaland,Mon,Naginimora and Tizit (60+ landslides, 600 houses),26.352,94.926,Naginimora-Tizit roads,assamtribune.com,high,7
+ner_2026_016,2026-07-31,landslide,Nagaland,Kohima,Phesama sinking zone,25.580,94.130,NH-2 (Nagaland-Manipur),eastmojo.com,medium,3
+ner_2026_017,2026-07-08,flood,Meghalaya,Ri-Bhoi,Jorabat (car swept at Jorabat bridge),25.756,91.861,NH-6,theshillongtimes.com,high,0.5
+ner_2026_018,2026-04-28,road damage,Tripura,Gomati,Udaipur/Amarpur/Karbook (uprooted trees),23.532,91.476,Gomati NH sections,nenow.in,medium,2
+ner_2026_019,2026-07-10,flood,Tripura,Khowai,Khowai district (11,000 displaced),23.890,91.640,Rural roads obstructed,thehindu.com,medium,5
+ner_2026_020,2026-04-28,flood,Tripura,West Tripura,Agartala urban flooding,23.832,91.414,Agartala city roads,newsonair.gov.in,medium,1

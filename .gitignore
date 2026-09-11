@@ -194,8 +194,15 @@ data/raw/terrain/**/*.tif
 data/raw/terrain/**/*.tiff
 data/raw/terrain/**/*.hdr
 data/raw/terrain/**/*.tfw
+data/raw/terrain/**/*.hgt
 data/raw/weather/**/*.gz
 data/raw/weather/**/*.tif
+data/raw/weather/**/*.grd
+
+# Out-of-NER-scope / wrong-region datasets (kept on disk, not committed)
+data/raw/Hyderabad_Landuse.geojson
+data/raw/reservior_storage_*.csv
+data/raw/Seismic_Zones.shp.xml
 
 # Generated/processed datasets
 data/processed/
