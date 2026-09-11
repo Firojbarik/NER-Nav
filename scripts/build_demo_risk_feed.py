@@ -131,6 +131,8 @@ def pick_segments(limit: int) -> pd.DataFrame:
     merged = merged.dropna(subset=["geometry"])
     meta = (ds[["osm_id", "state", "district"]].drop_duplicates("osm_id"))
     merged = merged.merge(meta, on="osm_id", how="left")
+    attrs = (ds[["osm_id", "highway_prior", "bridge_flag"]].drop_duplicates("osm_id"))
+    merged = merged.merge(attrs, on="osm_id", how="left")
     merged = gpd.GeoDataFrame(merged, geometry=merged["geometry"],
                               crs=roads.crs)
     return merged.head(limit)
@@ -156,6 +158,8 @@ def scores_for_tag(tag: str) -> dict:
     def score(features: dict) -> float:
         import xgboost as xgb  # noqa: F811
         X = pd.DataFrame([{name: features.get(name) for name in spec["features"]}])
+        for name in spec.get("numeric", spec["features"]):
+            X[name] = pd.to_numeric(X[name], errors="coerce")
         raw = float(model.predict_proba(X)[:, 1][0])
         return _calibrate(raw, calibration)
 
@@ -198,6 +202,8 @@ def main() -> int:
         rain = compute_rainfall(coords, anchor, avail_map, decompressed)
 
     rows = []
+    rain_days = float(sum(1 for k in range(1, LOOKBACK_DAYS + 1)
+                          if anchor - timedelta(days=k) in avail_map))
     for i, seg in segments.iterrows():
         base = {
             "rainfall_1day": rain.loc[i, "rainfall_1day"],
@@ -205,8 +211,11 @@ def main() -> int:
             "rainfall_7day": rain.loc[i, "rainfall_7day"],
             "rainfall_14day": rain.loc[i, "rainfall_14day"],
             "rainfall_30day": rain.loc[i, "rainfall_30day"],
+            "rainfall_days_available": rain_days,
             "elevation_m": seg["elevation_m"],
             "slope_degrees": seg["slope_degrees"],
+            "highway_prior": seg.get("highway_prior"),
+            "bridge_flag": seg.get("bridge_flag"),
         }
         try:
             prepared, quality = validate_and_prepare(

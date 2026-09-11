@@ -1,0 +1,48 @@
+{
+  "model_version": "2026-09-11_n62_p114",
+  "dataset": "data\\processed\\ml\\real_temporal_risk_dataset.parquet",
+  "dataset_sha256": "c0483914c84fe0609d91166cacaf1b0b0d54c8b7141adf348d4263ef17ef51ee",
+  "dataset_version": "real_temporal_risk_dataset:c0483914c84f",
+  "feature_version": "72fdf03c26f1f4856ee328e29bb2dc73cad8bef58da1cb8afee233cd0cee9c3b",
+  "model_sha256": "1f6542bd98b64cf79de8fffe6e94b29eaabdd9ba29809e817c35285c0e7db71a",
+  "feature_spec_sha256": "a3d77f9f6bab63602e16922e3f6685cd8092ca32a9ea80ffc21d53a73112a87f",
+  "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+  "production_ready": false,
+  "test_threshold": 0.5,
+  "threshold_selection": "fixed default 0.5 (exploratory CV used 0.5)",
+  "n_samples": 328,
+  "n_confirmed_events": 38,
+  "n_observation_negatives": 24,
+  "n_events": 62,
+  "n_corridors": 10,
+  "n_positives": 114,
+  "n_negatives": 214,
+  "out_of_sample_cv_metrics": {
+    "accuracy": 0.6067,
+    "roc_auc": 0.5553,
+    "avg_precision": 0.3876,
+    "precision": 0.3529,
+    "recall": 0.1579,
+    "f1": 0.2182,
+    "brier_score": 0.2503,
+    "false_negatives": 96,
+    "false_positives": 33,
+    "false_negative_rate": 0.8421,
+    "confusion_matrix": [
+      [
+        181,
+        33
+      ],
+      [
+        96,
+        18
+      ]
+    ],
+    "threshold": 0.5
+  },
+  "cv_note": "grouped leave-one-corridor-out; same evaluator as exploratory",
+  "caveat": "38 confirmed disruption events plus 24 observation-backed negative road-status records (328 samples: 114 positives, 214 negatives) across 10 NH corridors; negatives include assumed-unaffected roads. Grouped leave-one-corridor-out CV: accuracy=0.607, avg_precision=0.388, brier_score=0.250, f1=0.218, false_negative_rate=0.842, false_negatives=96.000, false_positives=33.000, precision=0.353, recall=0.158, roc_auc=0.555. This is a real-data model but NOT a production/deployable hazard classifier; metrics are exploratory and high-variance. Not production-safe.",
+  "not_for": "Production routing, emergency response, or public safety decisions",
+  "trained_on": "2026-09-11",
+  "created_utc": "2026-09-11T20:46:56.100232+05:30"
+}

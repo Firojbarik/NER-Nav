@@ -1,0 +1,111 @@
+{
+  "version": "2026-09-11_n62_p114",
+  "model_file": "data\\models\\prod_real_temporal_2026-09-11_n62_p114.ubj",
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "rainfall_days_available",
+    "elevation_m",
+    "slope_degrees",
+    "highway_prior",
+    "bridge_flag"
+  ],
+  "numeric": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "rainfall_days_available",
+    "elevation_m",
+    "slope_degrees",
+    "highway_prior",
+    "bridge_flag"
+  ],
+  "training_feature_profile": {
+    "rainfall_1day": {
+      "missing_rate": 0.11585365853658537,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 138.30565750122076,
+      "max": 293.18853759765625
+    },
+    "rainfall_3day": {
+      "missing_rate": 0.11585365853658537,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 340.47195388793943,
+      "max": 439.7828063964844
+    },
+    "rainfall_7day": {
+      "missing_rate": 0.11585365853658537,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 491.3514505767823,
+      "max": 553.0483093261719
+    },
+    "rainfall_14day": {
+      "missing_rate": 0.11585365853658537,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 641.0304538440705,
+      "max": 837.8845825195312
+    },
+    "rainfall_30day": {
+      "missing_rate": 0.11585365853658537,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 1023.3066864013672,
+      "max": 1320.6233053207397
+    },
+    "rainfall_days_available": {
+      "missing_rate": 0.11585365853658537,
+      "min": 30.0,
+      "p01": 30.0,
+      "p99": 30.0,
+      "max": 30.0
+    },
+    "elevation_m": {
+      "missing_rate": 0.0,
+      "min": 19.0,
+      "p01": 22.0,
+      "p99": 3848.0,
+      "max": 3934.0
+    },
+    "slope_degrees": {
+      "missing_rate": 0.0,
+      "min": 0.0,
+      "p01": 0.0,
+      "p99": 37.44701366424562,
+      "max": 45.111446380615234
+    },
+    "highway_prior": {
+      "missing_rate": 0.0,
+      "min": 0.1,
+      "p01": 0.1,
+      "p99": 0.1,
+      "max": 0.1
+    },
+    "bridge_flag": {
+      "missing_rate": 0.0,
+      "min": 1.0,
+      "p01": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    }
+  },
+  "label_mapping": {
+    "0": "no_disruption_within_7d",
+    "1": "disruption_within_7d"
+  },
+  "label_column": "label",
+  "horizon_days": 7,
+  "missing_value_policy": "XGBoost native NaN handling (do not impute)",
+  "trained_on": "2026-09-11",
+  "n_train_samples": 328,
+  "n_train_positives": 114,
+  "n_train_negatives": 214
+}

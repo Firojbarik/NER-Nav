@@ -1,9 +1,11 @@
 {
-  "model_version": "2026-08-28_151030_b7486dea",
+  "model_version": "2026-09-11_n62_p114",
+  "model_file": "data\\models\\prod_real_temporal_2026-09-11_n62_p114.ubj",
+  "report_file": "data\\models\\prod_report_2026-09-11_n62_p114.json",
   "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
   "production_ready": false,
   "intended_use": "Hackathon demonstration and offline research only",
   "not_for": "Production routing, emergency response, or public safety decisions",
-  "caveat": "Limited-confidence demo model trained/evaluated from 192 samples across 24 events (72 positives, 120 negatives). Only 4 future events are in the held-out test split; negative labels include assumed-unaffected roads. This is not production-safe.",
-  "updated_at": "2026-08-28T22:41:00+05:30"
+  "caveat": "38 confirmed disruption events plus 24 observation-backed negative road-status records (328 samples: 114 positives, 214 negatives) across 10 NH corridors; negatives include assumed-unaffected roads. Grouped leave-one-corridor-out CV: accuracy=0.607, avg_precision=0.388, brier_score=0.250, f1=0.218, false_negative_rate=0.842, false_negatives=96.000, false_positives=33.000, precision=0.353, recall=0.158, roc_auc=0.555. This is a real-data model but NOT a production/deployable hazard classifier; metrics are exploratory and high-variance. Not production-safe.",
+  "updated_at": "2026-09-11T20:46:56.102234+05:30"
 }
