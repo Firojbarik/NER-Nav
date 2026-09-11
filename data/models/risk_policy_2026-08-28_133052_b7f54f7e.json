@@ -1,6 +1,0 @@
-{
-  "version": "1.0.0",
-  "low_below": 0.4,
-  "high_at_or_above": 0.7,
-  "note": "Business risk bands are separate from the model operating threshold."
-}

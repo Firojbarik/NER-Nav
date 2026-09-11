@@ -112,6 +112,12 @@ ml/models/*
 ml/data/*
 !ml/data/.gitkeep
 
+# Old/one-off model bundles and reports (keep only the current prod/demo bundles tracked)
+data/models/prod_real_temporal_2026-08-28_*.ubj
+data/models/prod_real_temporal_2026-08-28_*.json
+data/models/prod_report_2026-08-28_*.json
+data/models/risk_policy_2026-08-28_*.json
+
 # -------------------------
 # Generated project data
 # -------------------------
@@ -159,6 +165,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# Test-only prediction traces (regenerated per test run)
+data/predictions/traces/test_prediction_traces.*
+
 # -------------------------
 # Generated documentation
 # -------------------------
@@ -194,8 +203,15 @@ data/raw/terrain/**/*.tif
 data/raw/terrain/**/*.tiff
 data/raw/terrain/**/*.hdr
 data/raw/terrain/**/*.tfw
+data/raw/terrain/**/*.hgt
 data/raw/weather/**/*.gz
 data/raw/weather/**/*.tif
+data/raw/weather/**/*.grd
+
+# Out-of-NER-scope / wrong-region datasets (kept on disk, not committed)
+data/raw/Hyderabad_Landuse.geojson
+data/raw/reservior_storage_*.csv
+data/raw/Seismic_Zones.shp.xml
 
 # Generated/processed datasets
 data/processed/
