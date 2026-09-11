@@ -285,6 +285,50 @@ targets are not reachable from this evidence ecosystem.
 
 ---
 
+## 9. Operational-source verification (2026-09): negative-supply ceiling confirmed
+
+### 9.1 What was checked
+
+Following the §8.4 implication and before parking, "operational" sources
+(daily/periodic official status feeds) were probed directly to find a scalable
+clean-negative affirmation stream beyond the press pool:
+
+1. **Nagaland DIPR advisories** (`ipr.nagaland.gov.in`, e.g.
+   `index.php/traffic-advisory-nh2`, `node/14327` NH-29 Dzüdzä chainage):
+   every fetched item is a disruption/restriction/closure notice — dated,
+   chainage-scoped, but they document the disrupted state, never an
+   unaffected-state affirmation.
+2. **NewsOnAir North-East daily bulletins** (`newsonair.gov.in`, `N-E-*.pdf`,
+   e.g. ep. 830, 23-08-2026): event-driven summaries. The recurring NH-2
+   Imphal-Dimapur item is resumption framing: "Resumption of public transport
+   ... via National Highway-2 continues smoothly ... after a gap of nearly
+   three years since the crisis in Manipur" — a post-clearance/reopening
+   corridor, not a healthy-segment negative. EXCLUDE under §1.4/honesty rules
+   even though "RESUMPTION" passes the literal keyword list.
+3. **MoHA NDM India daily sitreps** (`ndmindia.mha.gov.in/ndmi/report`):
+   disaster-event tabulations whose "Road Communication" items name
+   disruptions/blockages; there are no "nothing disrupted" fields to harvest.
+
+### 9.2 Verdict
+
+No operational "no disruption" feed exists for any monitored corridor. Every
+official class — press, department advisories, daily news bulletins, disaster
+sitreps — records **events**, not **non-events**. The §8.4 ceiling (~1
+admissible affirmation per corridor-year) holds across ALL source classes,
+not just newspapers.
+
+### 9.3 Implication
+
+The operational-source hunt is formally closed. Negatives remain a supporting
+stream at the honest ~1/corridor-year rate; the MODEL gate is parked pending
+the confirmed-positive corpus (Track B). Section 10.3's re-ingestion trigger
+(≥20 clean negatives) stays, but the source it assumed (operational "no
+disruption" lists) is now known not to exist in public sources — re-ingestion
+will require new evidence classes (e.g. satellite change detection) or future
+feeds.
+
+---
+
 ## 10. Training contamination diagnosis (2026-09)
 
 ### 10.1 The 24 inadmissible rows poison the model signal
@@ -324,9 +368,11 @@ trainable state given current data**. Any attempt to improve the MODEL gate
 requires at minimum:
 
 1. More clean, segment-scoped negatives (≥2 for a viable split, ideally ≥15
-   for meaningful two-class training) from **operational sources** (PWD/DDMA
-   daily "no disruption" lists, NHIDCL advisories, satellite change detection)
-   — the press/bulletin ecosystem cannot supply them.
+   for meaningful two-class training) — the press/bulletin ecosystem cannot
+   supply them, and direct verification of PWD/DDMA/NHIDCL-style operational
+   feeds (section 9) found them event-driven too. No public clean-negative
+   feed is known to exist; satellite change detection remains the only
+   untried evidence class.
 2. More confirmed positive events (Track B, `EVENT_COLLECTION_WORKFLOW.md`).
 
 The negative-contamination fix (section 10.1) should be applied once the
