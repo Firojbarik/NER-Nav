@@ -15,9 +15,16 @@ No synthetic values are introduced anywhere in this module or its outputs.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pandas as pd
+
+# Source-backed unaffected-road observations drive real negative anchors.
+NEGATIVE_OBSERVATIONS_FILE = (
+    Path(__file__).resolve().parents[2]
+    / "data" / "raw" / "hazards" / "negative_observations.csv"
+)
 
 # (event_id, osm_id, nh_ref, event_date) - all real confirmed positives.
 CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
@@ -104,21 +111,40 @@ def all_sample_times_for_events() -> Dict[str, List[date]]:
     return out
 
 
+def negative_observation_prediction_dates() -> List[date]:
+    """Sorted, unique prediction-time anchors from real source-backed negatives.
+
+    Each negative_observations.csv row is a genuinely observed unaffected
+    segment; its prediction_time must be covered by the rainfall feature
+    extraction exactly like the event-derived anchors are.
+    """
+    if not NEGATIVE_OBSERVATIONS_FILE.exists():
+        return []
+    frame = pd.read_csv(NEGATIVE_OBSERVATIONS_FILE, usecols=["prediction_time"])
+    parsed = pd.to_datetime(frame["prediction_time"], errors="coerce").dropna()
+    return sorted({pd.Timestamp(v).date() for v in parsed})
+
+
 def needed_prediction_dates() -> List[date]:
-    """Sorted, unique prediction (anchor) dates across all samples."""
+    """Sorted, unique prediction (anchor) dates across all samples.
+
+    Includes both the event-derived anchors and the observation-backed
+    negative anchors so the temporal rainfall parquet covers every sample
+    time the production dataset merges against.
+    """
     s = set()
     for times in all_sample_times_for_events().values():
         s.update(times)
+    s.update(negative_observation_prediction_dates())
     return sorted(s)
 
 
 def needed_chirps_dates() -> List[date]:
     """Sorted, unique calendar dates required for 30-day rainfall lookback."""
     need = set()
-    for times in all_sample_times_for_events().values():
-        for pt in times:
-            for k in range(1, LOOKBACK_DAYS + 1):
-                need.add(pt - timedelta(days=k))
+    for pt in needed_prediction_dates():
+        for k in range(1, LOOKBACK_DAYS + 1):
+            need.add(pt - timedelta(days=k))
     return sorted(need)
 
 

@@ -49,7 +49,7 @@ class TestTrainingInputGates(unittest.TestCase):
     def test_current_controls_are_not_production_segment_negatives(self):
         result = validate_negative_observation_quality()
         self.assertEqual(result["status"], "FAIL")
-        self.assertEqual(result["segment_level_rows"], 0)
+        self.assertEqual(result["segment_level_rows"], 1)
         self.assertEqual(result["corridor_only_rows"], 24)
         self.assertGreater(result["clearance_or_reopening_rows"], 0)
 
