@@ -165,6 +165,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# Test-only prediction traces (regenerated per test run)
+data/predictions/traces/test_prediction_traces.*
+
 # -------------------------
 # Generated documentation
 # -------------------------
