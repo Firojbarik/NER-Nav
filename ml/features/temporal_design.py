@@ -53,6 +53,12 @@ CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
     ("arunachal_rottung_nh13_2026_07_02", 961086598, "NH13", "2026-07-02"),
     ("sikkim_bardang_nh10_2026_07_07", 879401691, "NH10", "2026-07-07"),
     ("arunachal_pakro_nh13_2026_07_13", 459331169, "NH13", "2026-07-13"),
+    ("nagaland_kiruphema_nh29_2017_07_10", 1353575335, "NH29", "2017-07-10"),
+    ("meghalaya_jowai_nh6_2023_07_01", 743647547, "NH6", "2023-07-01"),
+    ("sikkim_bardang_nh10_2025_07_29", 606061034, "NH10", "2025-07-29"),
+    ("nagaland_pagala_nh29_2025_09_15", 1353399486, "NH29", "2025-09-15"),
+    ("manipur_tamenglong_nh37_2026_06_24", 613798216, "NH37", "2026-06-24"),
+    ("meghalaya_jorabat_nh6_2026_07_08", 977975338, "NH6", "2026-07-08"),
 ]
 
 # Prediction task: will a disruption affect this road within `horizon` days?
