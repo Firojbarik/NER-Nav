@@ -1,5 +1,5 @@
 {
-  "model_version": "2026-09-20_000850_48b0a9ff",
+  "model_version": "2026-09-20_002229_48b0a9ff",
   "dataset_version": "real_temporal_risk_dataset:48b0a9ffb5da",
   "dataset_sha256": "48b0a9ffb5da403ca9449d2e65a24a8f4ec0eb25376d3e5526d5ebc61e1d9225",
   "input_manifest": "data\\processed\\ml\\ml_input_manifest.json",

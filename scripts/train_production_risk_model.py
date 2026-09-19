@@ -442,6 +442,7 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
         pooled_scores.extend(test_scores.tolist())
         folds.append({
             "test_events": test_df["event_id"].unique().tolist(),
+            "n_test_rows": int(len(yte)),
             "n_test_positives": int(yte.sum()),
             "test_roc_auc": te_auc,
             "test_avg_precision": te_ap,
@@ -460,14 +461,29 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
     aucs = [f["test_roc_auc"] for f in folds if f["test_roc_auc"] is not None]
     aps = [f["test_avg_precision"] for f in folds
            if f["test_avg_precision"] is not None]
+    two_class_aucs = [
+        f["test_roc_auc"] for f in folds
+        if f["test_roc_auc"] is not None
+        and f["n_test_positives"] > 0
+        and f["n_test_positives"] < f.get("n_test_rows", f["n_test_positives"])]
     pooled_auc = _safe_auc(np.asarray(pooled_labels), np.asarray(pooled_scores))
     pooled_ap = (float(average_precision_score(pooled_labels, pooled_scores))
                  if np.unique(pooled_labels).size == 2 else None)
     return {
         "method": "chronological_expanding_window_grouped_cv",
         "n_folds": len(folds),
+        "n_two_class_folds": len(two_class_aucs),
         "pooled_roc_auc": pooled_auc,
         "pooled_avg_precision": pooled_ap,
+        # Two-class folds are the only ones where per-fold ROC-AUC is
+        # defined; their mean is the meaningful ranking-generalization
+        # signal. Pooled AUC mixes single-class folds (whose AUC is
+        # undefined and pools arbitrarily against other folds' scores) and
+        # is dominated by whichever folds happen to be two-class, so it is
+        # reported for completeness but not as the headline estimate.
+        "two_class_fold_mean_roc_auc": (float(np.mean(two_class_aucs))
+                                        if two_class_aucs else None),
+        "two_class_fold_aucs": [round(a, 3) for a in two_class_aucs],
         "pooled_roc_auc_min": float(np.min(aucs)) if aucs else None,
         "pooled_roc_auc_max": float(np.max(aucs)) if aucs else None,
         "pooled_roc_auc_std": float(np.std(aucs)) if len(aucs) > 1 else None,
@@ -1052,6 +1068,9 @@ def main() -> int:
             "cv_avg_precision_max": cv.get("pooled_avg_precision_max"),
             "cv_avg_precision_std": cv.get("pooled_avg_precision_std"),
             "cv_n_folds": cv.get("n_folds"),
+            "cv_n_two_class_folds": cv.get("n_two_class_folds"),
+            "cv_two_class_fold_mean_roc_auc": cv.get("two_class_fold_mean_roc_auc"),
+            "cv_two_class_fold_aucs": cv.get("two_class_fold_aucs"),
         },
         "hyperparameters": {**HYPERPARAMS,
                              "early_stopping_rounds": EARLY_STOPPING_ROUNDS},
@@ -1108,12 +1127,21 @@ def main() -> int:
     print(comparison["statement"])
     if cv.get("n_folds"):
         fmt = lambda value: f"{value:.3f}" if value is not None else "n/a"
+        n2c = cv.get("n_two_class_folds") or 0
+        mean2c = cv.get("two_class_fold_mean_roc_auc")
         print("Grouped CV: "
-              f"n_folds={cv['n_folds']}, "
-              f"pooled ROC-AUC={fmt(cv['pooled_roc_auc'])} "
-              f"[min {fmt(cv['pooled_roc_auc_min'])} - max {fmt(cv['pooled_roc_auc_max'])}], "
-              f"pooled AP={fmt(cv['pooled_avg_precision'])} "
-              f"[min {fmt(cv['pooled_avg_precision_min'])} - max {fmt(cv['pooled_avg_precision_max'])}]")
+              f"n_folds={cv['n_folds']} (two-class folds={n2c}), "
+              f"two-class fold mean ROC-AUC={fmt(mean2c)} "
+              f"{cv.get('two_class_fold_aucs') or '(fold-undefined elsewhere)'}")
+        if cv.get("pooled_roc_auc") is not None:
+            print("Grouped CV (pooled, single-class folds excluded from "
+                  "per-fold AUC): "
+                  f"pooled ROC-AUC={fmt(cv['pooled_roc_auc'])} "
+                  f"[min {fmt(cv['pooled_roc_auc_min'])} - "
+                  f"max {fmt(cv['pooled_roc_auc_max'])}], "
+                  f"pooled AP={fmt(cv['pooled_avg_precision'])} "
+                  f"[min {fmt(cv['pooled_avg_precision_min'])} - "
+                  f"max {fmt(cv['pooled_avg_precision_max'])}]")
     print("Artifacts written to data/models/")
     return 0
 

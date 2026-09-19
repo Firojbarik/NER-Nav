@@ -1,6 +1,6 @@
 {
   "name": "ner_real_temporal_road_disruption",
-  "version": "2026-09-20_000850_48b0a9ff",
+  "version": "2026-09-20_002229_48b0a9ff",
   "dataset_version": "real_temporal_risk_dataset:48b0a9ffb5da",
   "feature_version": "2cbe0e4fc357e4c87aa4b63bd4c02118a430a0b2c287de41b08e41f2548a64fe",
   "input_manifest": "data\\processed\\ml\\ml_input_manifest.json",
@@ -84,7 +84,7 @@
     "optional": true,
     "calibrator_fitted": false,
     "note": "Calibration is optional and fit only on validation data; the current validation set is very small.",
-    "calibrator_file": "data\\models\\prod_real_temporal_2026-09-20_000850_48b0a9ff_calib.json",
+    "calibrator_file": "data\\models\\prod_real_temporal_2026-09-20_002229_48b0a9ff_calib.json",
     "calibrator_sha256": "4c71a40f40994226c362bb8998f09394edefbccd3613291bd4c8cd40e00c192e"
   }
 }
