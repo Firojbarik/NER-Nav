@@ -27,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MODEL_DIR = PROJECT_ROOT / "data" / "models"
 
 # Tags whose card status is "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE".
-DEFAULT_DEMO_TAGS = ["2026-08-28_151030_b7486dea"]
+DEFAULT_DEMO_TAGS = ["2026-09-20_002229_48b0a9ff"]
 
 ALLOWED_STATUSES = ("PRODUCTION_READY_EVIDENCE_SUPPORTED",
                     "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
@@ -95,6 +95,8 @@ def load_bundle(tag: str) -> dict:
     if report.get("model_sha256") and _sha256_file(model_path) != report["model_sha256"]:
         raise ValueError("model artifact SHA256 does not match its report")
     features = json.loads(feature_path.read_text(encoding="utf-8"))
+    if features.get("model_version") and features["model_version"] != tag:
+        raise ValueError("feature specification model version mismatch")
     if report.get("feature_spec_sha256") and _sha256_file(feature_path) != report["feature_spec_sha256"]:
         raise ValueError("feature specification SHA256 does not match its report")
 
@@ -180,6 +182,9 @@ def predict(bundle: dict, features: dict) -> dict:
         "calibrated_probability": round(calibrated_probability, 6),
         "disruption_probability": round(calibrated_probability, 6),
         "top_contributing_factors": factors[:5],
+        "explanation_disclaimer": (
+            "Feature contributions describe this model output and are not causal proof."
+        ),
     }
 
 

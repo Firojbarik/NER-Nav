@@ -118,8 +118,10 @@ def predict(request: PredictRequest) -> PredictResponse:
             ood.append(name)
     if ood:
         flags.append("OUT_OF_DISTRIBUTION")
-    if not request.prediction_timestamp:
-        flags.append("WEATHER_FRESHNESS_UNKNOWN")
+    # The API request has no weather_observed_at input, so weather freshness can
+    # never be verified here.  Report it as UNKNOWN rather than silently claim
+    # the weather inputs are fresh (mirrors the CLI when freshness is absent).
+    flags.append("WEATHER_FRESHNESS_UNKNOWN")
 
     try:
         result = risk_model.predict(bundle, prepared)
@@ -151,6 +153,7 @@ def predict(request: PredictRequest) -> PredictResponse:
         operating_decision=operating_decision,
         operating_threshold=bundle["threshold"],
         top_contributing_factors=result["top_contributing_factors"],
+        explanation_disclaimer=result.get("explanation_disclaimer"),
         data_quality={
             "confidence_flags": sorted(set(flags)),
             "low_confidence": bool(flags),
