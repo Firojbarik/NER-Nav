@@ -74,6 +74,8 @@ CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
     ("nagaland_pagala_nh29_2025_09_15", 1353399486, "NH29", "2025-09-15"),
     ("sikkim_nagdhara_nh510_2025_09_17", 134421795, "NH510", "2025-09-17"),
     ("tripura_erapar_nh208_2026_06_10", 384497056, "NH208", "2026-06-10"),
+    ("meghalaya_shillong_dawki_nh206_2026_06_21", 662679409, "NH206", "2026-06-21"),
+    ("assam_jatinga_nh27_2026_06_21", 239060064, "NH27", "2026-06-21"),
     ("manipur_tamenglong_nh37_2026_06_24", 613798216, "NH37", "2026-06-24"),
     ("sikkim_gyalshing_legship_nh510_2026_06_24", 44848726, "NH510", "2026-06-24"),
     ("arunachal_rottung_nh13_2026_07_02", 961086598, "NH13", "2026-07-02"),
@@ -81,7 +83,9 @@ CONFIRMED_EVENTS: List[Tuple[str, int, str, str]] = [
     ("meghalaya_jorabat_nh6_2026_07_08", 977975338, "NH6", "2026-07-08"),
     ("manipur_vaorei_nh102a_2026_07_12", 1237518330, "NH102A", "2026-07-12"),
     ("arunachal_pakro_nh13_2026_07_13", 459331169, "NH13", "2026-07-13"),
+    ("sikkim_bardang_nh10_2026_07_14", 879401691, "NH10", "2026-07-14"),
     ("nagaland_tuli_nh2_2026_07_20", 237490856, "NH2", "2026-07-20"),
+    ("manipur_noney_awangkhul_nh37_2026_07_20", 44884968, "NH37", "2026-07-20"),
 ]
 
 # Prediction task: will a disruption affect this road within `horizon` days?
