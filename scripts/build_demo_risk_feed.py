@@ -228,7 +228,6 @@ def main() -> int:
                 feature_profile=bundle["spec"].get("training_feature_profile", {}))
             probability = bundle["score"](prepared)
             level = risk_level(probability, bundle["risk_policy"])
-            decision = "ALERT" if probability >= bundle["threshold"] else "NO_ALERT"
             rows.append({
                 "osm_id": int(seg["osm_id"]),
                 "ref": str(seg["ref"]),
@@ -247,19 +246,59 @@ def main() -> int:
                 },
                 "disruption_probability": round(probability, 4),
                 "risk_level": level,
-                "operating_decision": decision,
                 "confidence_flags": quality["confidence_flags"],
             })
         except ValueError as exc:
             print(f"WARN: segment {seg['osm_id']} ({seg['ref']}) skipped: {exc}",
                   file=sys.stderr)
 
+    # Scale-free per-window alert policy: the top-alert_share of this window's
+    # own scores is alerted by rank each emission, so an absolute shift in the
+    # score scale cannot freeze the alert budget (the frozen reference
+    # threshold is kept for provenance only). High business-band risk is an
+    # absolute safety floor that always alerts even if outside the share.
+    from scripts.train_production_risk_model import per_window_top_k
+    if rows:
+        window_scores = np.asarray([r["disruption_probability"] for r in rows],
+                                   dtype=float)
+        alert_share = float(bundle["risk_policy"].get(
+            "alert_share", 0.30))
+        mask, cutoff, alert_selection = per_window_top_k(window_scores,
+                                                         alert_share)
+        alert_selection = dict(alert_selection)
+        high_floor = [i for i, r in enumerate(rows)
+                      if r["risk_level"] == "HIGH"]
+        for i in high_floor:
+            mask[i] = True
+        if high_floor:
+            alert_selection["high_band_floor_alerts"] = len(high_floor)
+            alert_selection["window_alert_rate"] = float(
+                mask.sum() / len(mask))
+            alert_selection["note"] += (
+                " Also forcibly alerted HIGH business-band segments "
+                "(absolute safety floor).")
+        for r, is_alert in zip(rows, mask):
+            r["operating_decision"] = "ALERT" if is_alert else "NO_ALERT"
+    else:
+        cutoff, alert_selection = None, {"strategy": "no_window_scores",
+                                         "window_selected": 0}
+    alert_policy = {
+        "mode": bundle["risk_policy"].get("alert_mode",
+                                          "per_window_relative_top_k"),
+        "alert_share": alert_share if rows else None,
+        "cutoff": cutoff,
+        "window_selected": alert_selection.get("window_selected", 0),
+        "strategy": alert_selection.get("strategy"),
+    }
+
     feed = {
         "generated_at": datetime.now().astimezone().isoformat(),
         "anchor_date": anchor.isoformat(),
         "model_version": args.tag,
         "model_status": bundle["report"].get("status"),
-        "operating_threshold": bundle["threshold"],
+        "operating_threshold": (float(cutoff) if cutoff is not None
+                                else bundle["threshold"]),
+        "alert_policy": alert_policy,
         "risk_policy": bundle["risk_policy"],
         "caveat": bundle["report"].get("caveat", ""),
         "segments": sorted(rows, key=lambda r: r["disruption_probability"], reverse=True),

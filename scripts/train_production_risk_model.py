@@ -103,10 +103,17 @@ MIN_ROC_AUC = DEMO_MIN_ROC_AUC
 MIN_AVG_PRECISION = DEMO_MIN_AVG_PRECISION
 
 RISK_POLICY = {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "low_below": 0.40,
     "high_at_or_above": 0.70,
-    "note": "Business risk bands are separate from the model operating threshold.",
+    "alert_mode": "per_window_relative_top_k",
+    "alert_share": MAX_REVIEWABLE_ALERT_RATE,
+    "note": ("Business risk bands are separate from the model operating "
+             "threshold. Deployment alerting uses a scale-free per-window "
+             "relative top-k share: the cutoff is re-derived from each "
+             "forecast window's own score distribution, so an absolute shift "
+             "in the model score scale between windows cannot freeze the "
+             "alert budget at zero."),
 }
 
 
@@ -418,6 +425,56 @@ def select_top_k_threshold(scores, max_alert_rate=MAX_REVIEWABLE_ALERT_RATE):
         "validation_alert_rate": float(selected / len(scores)) if len(scores) else 0.0,
         "validation_selected": selected,
         "max_alert_rate": max_alert_rate,
+    }
+
+
+def per_window_top_k(scores, alert_share=MAX_REVIEWABLE_ALERT_RATE):
+    """Rank-based scale-free top-k alert selector for one forecast window.
+
+    Alerts the top ``~alert_share`` of the *current* window's scores by rank,
+    with ties broken deterministically by input index. Re-deriving the choice
+    from the window's own distribution every emission makes the policy
+    scale-free, and rank-based selection keeps a fully degenerate (all-tied or
+    scale-shifted) window from freezing the alert budget to zero *or* blowing
+    past the alert share.
+
+    Returns ``(mask, cutoff, selection)`` where ``mask[i]`` is True for the
+    selected alerts. The alert decision must be by rank (``mask``), never
+    ``score >= cutoff``, because in a tie-degenerate window every score equals
+    the cutoff.
+    """
+    scores = np.asarray(scores, dtype=float)
+    n = int(len(scores))
+    if not 0 <= alert_share <= 1:
+        raise ValueError("alert_share must be between 0 and 1")
+    if n == 0:
+        return np.zeros(0, dtype=bool), None, {
+            "strategy": "per_window_relative_top_k",
+            "alert_share": alert_share,
+            "window_alert_rate": 0.0,
+            "window_selected": 0,
+            "cutoff": None,
+            "n": 0,
+        }
+    k = max(1, min(n, int(np.floor(n * alert_share))))
+    order = np.argsort(-scores, kind="stable")
+    selected_idx = order[:k]
+    mask = np.zeros(n, dtype=bool)
+    mask[selected_idx] = True
+    cutoff = float(scores[selected_idx[-1]])
+    return mask, cutoff, {
+        "strategy": "per_window_relative_top_k",
+        "alert_share": alert_share,
+        "window_alert_rate": float(k / n),
+        "window_selected": k,
+        "cutoff": float(cutoff),
+        "n": n,
+        "mode": RISK_POLICY["alert_mode"],
+        "note": ("Scale-free + rank-based: the top-alert_share is selected "
+                 "from this window's own score distribution at emission time, "
+                 "ties broken by input order. Decisions use the rank mask, "
+                 "never score >= cutoff, so an all-tied window cannot select "
+                 "zero alerts or exceed the share."),
     }
 
 
@@ -873,6 +930,17 @@ def main() -> int:
             },
         },
         "threshold_selection": threshold_selection,
+        "alert_policy": {
+            "mode": RISK_POLICY["alert_mode"],
+            "alert_share": RISK_POLICY["alert_share"],
+            "description": (
+                "Deployed alerting is scale-free: each forecast window "
+                "alerts its top-alert_share of scores by cutoff re-derived "
+                "from that window's own score distribution. The frozen "
+                "'test_threshold' below is the validation-chosen reference; "
+                "it does not gate deployed alerts."),
+            "reference_threshold": float(threshold),
+        },
         "calibration": calibration,
         "test_threshold": float(threshold),
         "test_metrics": test_metrics,
