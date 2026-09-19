@@ -65,8 +65,10 @@ from ml.features.temporal_design import (  # noqa: E402
 )
 
 ROAD_FILE = Path("data/processed/roads/ner_roads_districts.gpkg")
+ROAD_IDENTITY_FILE = Path("data/processed/roads/road_segment_identity.parquet")
 TERRAIN_FILE = Path("data/processed/terrain/road_terrain_features.parquet")
 RAINFALL_FILE = Path("data/processed/weather/road_rainfall_features_temporal.parquet")
+NEGATIVE_OBSERVATIONS_FILE = Path("data/raw/hazards/negative_observations.csv")
 OUTPUT_DIR = Path("data/processed/ml")
 OUTPUT_FILE = OUTPUT_DIR / "real_temporal_risk_dataset.parquet"
 QA_FILE = OUTPUT_DIR / "real_temporal_risk_dataset_qa.json"
@@ -160,6 +162,12 @@ def main() -> None:
     rd = roads[[c for c in road_cols if c in roads.columns]].copy()
     rd = rd.merge(terrain, on="osm_id", how="left")
 
+    identity = pd.read_parquet(ROAD_IDENTITY_FILE)
+    identity["osm_id"] = pd.to_numeric(
+        identity["source_osm_id"], errors="coerce").astype("Int64")
+    rd = rd.merge(identity[["osm_id", "road_segment_id"]], on="osm_id", how="left")
+    rd["road_segment_id"] = rd["road_segment_id"].astype("object")
+
     # ------------------------------------------------------------------ #
     # Corridor negatives (unaffected same-NH trunk roads) per event at E-3
     # ------------------------------------------------------------------ #
@@ -167,6 +175,38 @@ def main() -> None:
     neg_rows = []
     used = set(pos_ids)
     conf_src = "assumed_unaffected_real_pool"
+
+    # ------------------------------------------------------------------ #
+    # Observed-open negatives (source-backed, from negative_observations.csv)
+    # Rows are fixed label-0 samples anchored to a real road-status observation
+    # (road open / cleared / reopened). Their osm_ids are excluded from the
+    # assumed-unaffected corridor pool below so a confirmed-open road is never
+    # independently sampled as a random negative.
+    # ------------------------------------------------------------------ #
+    if NEGATIVE_OBSERVATIONS_FILE.exists():
+        obs = pd.read_csv(
+            NEGATIVE_OBSERVATIONS_FILE,
+            dtype={"osm_id": "int64", "ref": str, "prediction_time": str},
+        )
+        for _, r in obs.iterrows():
+            oid = int(r["osm_id"])
+            if oid in used:
+                continue
+            if oid not in set(rd["osm_id"]):
+                print(f"  skip {r['observation_id']}: osm {oid} not in road network")
+                continue
+            neg_rows.append({
+                "event_id": r["observation_id"], "osm_id": oid, "ref": r["ref"],
+                "prediction_time": str(r["prediction_time"]), "label": 0,
+                "sample_kind": "observed_open_negative",
+            })
+            used.add(oid)
+    obs_neg_count = sum(1 for r_ in neg_rows if r_["sample_kind"] == "observed_open_negative")
+    print(f"Observed-open negatives: {obs_neg_count}")
+
+    # ------------------------------------------------------------------ #
+    # Corridor negatives (unaffected same-NH trunk roads) per event at E-3
+    # ------------------------------------------------------------------ #
     for eid, osm, ref, ed in CONFIRMED_EVENTS:
         E = date.fromisoformat(ed)
         pt = str(E - timedelta(days=NEGATIVE_CORRIDOR_OFFSET))
@@ -242,11 +282,13 @@ def main() -> None:
         ds["label"] == 1,
         "real_confirmed_temporal",
         np.where(ds["sample_kind"] == "same_road_control",
-                 "real_same_road_control", conf_src),
+                 "real_same_road_control",
+                 np.where(ds["sample_kind"] == "observed_open_negative",
+                          "observed_open_real", conf_src)),
     )
 
     feature_cols = [
-        "event_id", "osm_id", "ref", "highway", "district", "state",
+        "event_id", "osm_id", "road_segment_id", "ref", "highway", "district", "state",
         "prediction_time", "label", "sample_kind", "label_source",
         "elevation_m", "slope_degrees",
     ] + RAINFALL_COLS + ["rainfall_days_available", "highway_prior", "bridge_flag",
@@ -273,16 +315,21 @@ def main() -> None:
         "design": (
             f"real temporal: {len(CONFIRMED_EVENTS)} confirmed events; positives at event-1/-3/-7 "
             "(event within 7-day horizon), same-road controls at event-14, "
+            "observed-open negatives from negative_observations.csv, "
             "corridor negatives (assumed-unaffected) sampled at event-3"
         ),
         "horizon_days": 7,
         "n_positive_labels": pos_count,
         "n_negative_labels": neg_count,
+        "n_observed_open_negatives": obs_neg_count,
         "positive_ids": sorted(pos_ids),
         "rainfall_lookback_days": 30,
         "rainfall_coverage": rain_cov,
         "terrain_slope_coverage_pos": round(float(ds.loc[ds["label"] == 1, "slope_degrees"].notna().mean()), 4),
         "ref_balance": ref_balance,
+        "negative_label_sources": sorted(
+            ds.loc[ds["label"] == 0, "label_source"].dropna().unique().tolist()
+        ),
         "features": feature_cols,
         "validation": validation,
         "input_lineage": {

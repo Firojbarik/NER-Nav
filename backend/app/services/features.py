@@ -123,7 +123,16 @@ def derive_features(values: dict, prediction_timestamp: str | None = None) -> tu
         flags.append("MISSING_TERRAIN")
 
     if prediction_timestamp:
-        anchor_date = pd.Timestamp(prediction_timestamp).date()
+        try:
+            prediction_time = pd.Timestamp(prediction_timestamp)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "prediction_timestamp must be a valid ISO-8601 timestamp") from exc
+        if prediction_time.tzinfo is None:
+            raise ValueError("prediction_timestamp must include a timezone")
+        if prediction_time > pd.Timestamp.now(tz="UTC") + pd.Timedelta(minutes=5):
+            raise ValueError("prediction_timestamp cannot be in the future")
+        anchor_date = prediction_time.date()
         prepared.update({
             "month": float(month_feature(anchor_date)),
             "seasonal_sin": seasonal_sin(anchor_date),

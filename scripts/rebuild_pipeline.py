@@ -78,6 +78,9 @@ def main() -> int:
     run([PYTHON, str(REPO / "scripts" / "build_real_temporal_dataset.py")],
         "Build real temporal risk dataset")
 
+    run([PYTHON, str(REPO / "scripts" / "build_production_dataset.py")],
+        "Build production-constrained dataset (admissible labels only)")
+
     run([PYTHON, str(REPO / "scripts" / "train_production_risk_model.py")],
         "Train production model (with honest gate)")
 

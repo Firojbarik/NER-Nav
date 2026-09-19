@@ -1,7 +1,7 @@
 {
-  "model_version": "2026-08-28_222351_3322fca5",
-  "report_file": "data\\models\\prod_report_2026-08-28_222351_3322fca5.json",
-  "status": "GATED_LOW_CONFIDENCE",
-  "production_ready": false,
-  "updated_at": "2026-08-28T22:23:51.981372+05:30"
+ "model_version": "2026-09-20_002229_48b0a9ff",
+ "report_file": "data\\\\models\\\\prod_report_2026-09-20_002229_48b0a9ff.json",
+ "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+ "production_ready": false,
+ "updated_at": "2026-09-20T00:22:29.000000+05:30"
 }

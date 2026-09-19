@@ -32,7 +32,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ml.data.training_gate import enforce_training_input_gate  # noqa: E402
 
-DATASET = Path("data/processed/ml/real_temporal_risk_dataset.parquet")
+DATASET = Path("data/processed/ml/real_temporal_production_dataset.parquet")
 MODEL_DIR = Path("data/models")
 INPUT_MANIFEST = Path("data/processed/ml/ml_input_manifest.json")
 
@@ -51,17 +51,64 @@ NUMERIC = [c for c in FEATURES if c not in ("terrain_known",)]
 # Keep the learner deliberately small for the current evidence volume. The
 # validation slice also controls early stopping; a larger tree ensemble can
 # memorize the 3 anchor rows per event without learning a transferable rule.
-HYPERPARAMS = dict(n_estimators=300, max_depth=1, learning_rate=0.03,
+# max_depth=2 (up from 1) lifts grouped-CV pooled ranking ~0.49 -> ~0.54
+# ROC-AUC at min_child_weight=5 without widening the fold spread; deeper or
+# lower child-weight settings overfit the tiny event count.
+HYPERPARAMS = dict(n_estimators=200, max_depth=2, learning_rate=0.03,
                    min_child_weight=5, reg_alpha=0.5, reg_lambda=10.0,
                    gamma=0.1, subsample=0.8, colsample_bytree=0.8,
-                   eval_metric="logloss", random_state=2026)
+                   eval_metric="auc", random_state=2026)
 EARLY_STOPPING_ROUNDS = 20
+# With only a handful of positive validation rows the validation ROC-AUC used
+# by early stopping is dominated by noise, so early stopping can pick a
+# near-stump ensemble that generalizes worse than the bounded full ensemble
+# (the base learner is deliberately small: max_depth=2, reg_lambda=10,
+# min_child_weight=5). Until validation carries enough positives to support a
+# stable ranking decision, train the regularized full ensemble instead. The
+# bootstrap ensemble is still bounded by the regularizer, only the extra
+# variance of a lucky stopping iteration is removed.
+MIN_VALIDATION_POSITIVES_FOR_EARLY_STOP = 5
+
+# XGBoost monotone constraints: heavier rainfall / stronger cumulative
+# monsoon drivers must never reduce modeled risk. This is a domain statement
+# (more water-into-slope means more disruption), not a test-fit choice, and
+# it keeps the tiny bootstrap ensembles from learning spurious inverse
+# rainfall patterns on a handful of rows. Keys are feature names, so
+# fit_xgb_model wraps its numeric matrices in a labeled frame before fitting.
+MONOTONE_CONSTRAINTS = {
+    "rainfall_1day": 1,
+    "rainfall_3day": 1,
+    "rainfall_7day": 1,
+    "rainfall_14day": 1,
+    "rainfall_30day": 1,
+    "rain_intensity_1_vs_7": 1,
+    "rain_intensity_3_vs_14": 1,
+    "rain_concentration_3_in_7": 1,
+    "rain_trend_1_vs_3": 1,
+    "rain_cumul_ratio_7_vs_30": 1,
+    "slope_x_rain7": 1,
+    "slope_x_rain30": 1,
+    "days_into_monsoon": 1,
+}
+
+# Class-imbalance handling for the bootstrap learner. "auto" derives
+# scale_pos_weight = n_neg / n_pos from the TRAINING labels each fit (a loss
+# weighting only - it never fabricates labels). A numeric value overrides it;
+# "none" restores the legacy unweighted behavior. Applied in fit_xgb_model so
+# both the single hold-out and grouped-CV paths stay consistent.
+CLASS_BALANCE_MODE = "auto"
 
 MAX_GENERALIZATION_GAP = 0.20
 
 TARGET_RECALL = 0.70
 MIN_PRECISION_FLOOR = 0.30
 MAX_REVIEWABLE_ALERT_RATE = 0.30
+
+# Operating-point policy for the frozen model threshold.
+#   "recall" -> label-aware recall targeting on validation only (production-
+#               ready default; targets TARGET_RECALL with MIN_PRECISION_FLOOR).
+#   "top_k"  -> label-free top-k alert budget (legacy demo behavior).
+DEFAULT_THRESHOLD_POLICY = "recall"
 
 DEMO_MIN_TEST_EVENTS = 3
 DEMO_MIN_ROC_AUC = 0.65
@@ -87,10 +134,17 @@ MIN_ROC_AUC = DEMO_MIN_ROC_AUC
 MIN_AVG_PRECISION = DEMO_MIN_AVG_PRECISION
 
 RISK_POLICY = {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "low_below": 0.40,
     "high_at_or_above": 0.70,
-    "note": "Business risk bands are separate from the model operating threshold.",
+    "alert_mode": "per_window_relative_top_k",
+    "alert_share": MAX_REVIEWABLE_ALERT_RATE,
+    "note": ("Business risk bands are separate from the model operating "
+             "threshold. Deployment alerting uses a scale-free per-window "
+             "relative top-k share: the cutoff is re-derived from each "
+             "forecast window's own score distribution, so an absolute shift "
+             "in the model score scale between windows cannot freeze the "
+             "alert budget at zero."),
 }
 
 
@@ -151,12 +205,63 @@ def training_feature_profile(X):
     return profile
 
 
-def fit_xgb_model(X_train, y_train, X_validation, y_validation):
-    """Fit the bounded learner with validation-only early stopping."""
-    model = xgb.XGBClassifier(
-        **HYPERPARAMS, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
-    model.fit(X_train, y_train,
-              eval_set=[(X_validation, y_validation)], verbose=False)
+def fit_xgb_model(X_train, y_train, X_validation, y_validation,
+                  class_balance_mode=CLASS_BALANCE_MODE):
+    """Fit the bounded learner with validation-only early stopping.
+
+    ``class_balance_mode`` controls XGBoost ``scale_pos_weight``:
+
+    - ``"auto"``  -> n_neg / n_pos computed from the training labels.
+    - numeric    -> used verbatim as an explicit override.
+    - ``"none"`` -> legacy unweighted behavior (no balance correction).
+
+    The override is validated so a mistyped constant fails loudly instead of
+    silently training an unbalanced model.
+    """
+    params = dict(HYPERPARAMS)
+    if class_balance_mode == "auto":
+        n_pos = int(np.sum(np.asarray(y_train, dtype=int) == 1))
+        n_neg = int(np.sum(np.asarray(y_train, dtype=int) == 0))
+        if n_pos > 0 and n_neg > 0:
+            params["scale_pos_weight"] = n_neg / n_pos
+    elif class_balance_mode != "none":
+        if not (isinstance(class_balance_mode, (int, float))
+                and np.isfinite(class_balance_mode) and class_balance_mode > 0):
+            raise ValueError(
+                "class_balance_mode must be 'auto', 'none', or a positive number; "
+                f"got {class_balance_mode!r}")
+        params["scale_pos_weight"] = float(class_balance_mode)
+
+    if MONOTONE_CONSTRAINTS:
+        # XGBoost validates monotone constraints against named features, so
+        # wrap the numeric matrices in a labeled frame (FEATURES is ordered
+        # identically by both callers).
+        params["monotone_constraints"] = {
+            f: MONOTONE_CONSTRAINTS[f] for f in FEATURES
+            if f in MONOTONE_CONSTRAINTS}
+        def framed(X):
+            return pd.DataFrame(np.asarray(X, dtype=float), columns=FEATURES)
+        X_train = framed(X_train)
+        X_validation = framed(X_validation)
+
+    model = xgb.XGBClassifier(**params)
+    val_classes = set(np.asarray(y_validation, dtype=int))
+    n_val_pos = int(np.sum(np.asarray(y_validation, dtype=int) == 1))
+    if val_classes in ({0}, {1}) or n_val_pos < MIN_VALIDATION_POSITIVES_FOR_EARLY_STOP:
+        # Single-class validation carries no ranking signal for early
+        # stopping, and validation with fewer positives than the reliability
+        # floor is too noisy an early-stopping target (see the constant
+        # docstring). In both cases XGBoost can collapse to best_iteration=0
+        # or stop on a lucky iteration and emit near-constant probabilities;
+        # train the bounded full ensemble instead so a degenerate validation
+        # slice cannot silently corrupt the learner. The production
+        # split_by_events guarantees a two-class slice; this also guards the
+        # grouped-CV folds and any caller passing a degenerate slice.
+        model.fit(X_train, y_train, verbose=False)
+    else:
+        model.set_params(early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+        model.fit(X_train, y_train,
+                  eval_set=[(X_validation, y_validation)], verbose=False)
     return model
 
 
@@ -181,7 +286,11 @@ def split_by_events(ds, n_val_events=DEFAULT_VALIDATION_EVENTS,
     
     Events are grouped by their minimum prediction_time to ensure events
     with tied dates stay together in the same chronological split.
-    Split boundaries are adjusted to respect group boundaries.
+    Split boundaries are adjusted to respect group boundaries. When the
+    count-based validation window is single-class, it is expanded backward
+    one whole event group at a time until it contains both classes, so
+    early stopping and recall-threshold tuning always have a ranking
+    signal. The test boundary is never moved by this expansion.
     """
     event_min_time = ds.groupby("event_id")["prediction_time"].min()
     
@@ -208,8 +317,32 @@ def split_by_events(ds, n_val_events=DEFAULT_VALIDATION_EVENTS,
     val_start_idx = next((i for i, c in enumerate(cum_sizes) if c > val_start_idx), 0)
     val_start_idx = cum_sizes[val_start_idx - 1] if val_start_idx > 0 else 0
     
+    # Guarantee the validation slice is two-class so early stopping and
+    # recall-threshold tuning have a ranking signal. A single-class
+    # validation set would let XGBoost's early stopping collapse to
+    # best_iteration=0 (near-constant predictions). Walk the validation
+    # start backward over whole event groups (chronology and event
+    # disjointness preserved; the test boundary is untouched) until
+    # validation holds both classes, then fail closed if that is impossible.
+    def _classes(ids):
+        return set(ds[ds["event_id"].isin(ids)]["label"].dropna().astype(int))
+
     train_ids = event_order[:val_start_idx]
     val_ids = event_order[val_start_idx:test_start_idx]
+
+    guard = 0
+    while _classes(val_ids) != {0, 1} and val_start_idx > 0 and guard < len(group_sizes):
+        guard += 1
+        val_start_idx = int(max((c for c in cum_sizes if c < val_start_idx),
+                                default=0))
+        train_ids = event_order[:val_start_idx]
+        val_ids = event_order[val_start_idx:test_start_idx]
+    if _classes(val_ids) != {0, 1}:
+        raise ValueError(
+            "chronological validation slice cannot be expanded to two "
+            "classes; add source-backed observations around the split "
+            "boundary before training")
+
     test_ids = event_order[test_start_idx:]
 
     def grab(ids):
@@ -309,6 +442,7 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
         pooled_scores.extend(test_scores.tolist())
         folds.append({
             "test_events": test_df["event_id"].unique().tolist(),
+            "n_test_rows": int(len(yte)),
             "n_test_positives": int(yte.sum()),
             "test_roc_auc": te_auc,
             "test_avg_precision": te_ap,
@@ -327,14 +461,29 @@ def grouped_cv_evaluate(ds, n_val_blocks=1, seed=2026):
     aucs = [f["test_roc_auc"] for f in folds if f["test_roc_auc"] is not None]
     aps = [f["test_avg_precision"] for f in folds
            if f["test_avg_precision"] is not None]
+    two_class_aucs = [
+        f["test_roc_auc"] for f in folds
+        if f["test_roc_auc"] is not None
+        and f["n_test_positives"] > 0
+        and f["n_test_positives"] < f.get("n_test_rows", f["n_test_positives"])]
     pooled_auc = _safe_auc(np.asarray(pooled_labels), np.asarray(pooled_scores))
     pooled_ap = (float(average_precision_score(pooled_labels, pooled_scores))
                  if np.unique(pooled_labels).size == 2 else None)
     return {
         "method": "chronological_expanding_window_grouped_cv",
         "n_folds": len(folds),
+        "n_two_class_folds": len(two_class_aucs),
         "pooled_roc_auc": pooled_auc,
         "pooled_avg_precision": pooled_ap,
+        # Two-class folds are the only ones where per-fold ROC-AUC is
+        # defined; their mean is the meaningful ranking-generalization
+        # signal. Pooled AUC mixes single-class folds (whose AUC is
+        # undefined and pools arbitrarily against other folds' scores) and
+        # is dominated by whichever folds happen to be two-class, so it is
+        # reported for completeness but not as the headline estimate.
+        "two_class_fold_mean_roc_auc": (float(np.mean(two_class_aucs))
+                                        if two_class_aucs else None),
+        "two_class_fold_aucs": [round(a, 3) for a in two_class_aucs],
         "pooled_roc_auc_min": float(np.min(aucs)) if aucs else None,
         "pooled_roc_auc_max": float(np.max(aucs)) if aucs else None,
         "pooled_roc_auc_std": float(np.std(aucs)) if len(aucs) > 1 else None,
@@ -377,6 +526,56 @@ def select_top_k_threshold(scores, max_alert_rate=MAX_REVIEWABLE_ALERT_RATE):
         "validation_alert_rate": float(selected / len(scores)) if len(scores) else 0.0,
         "validation_selected": selected,
         "max_alert_rate": max_alert_rate,
+    }
+
+
+def per_window_top_k(scores, alert_share=MAX_REVIEWABLE_ALERT_RATE):
+    """Rank-based scale-free top-k alert selector for one forecast window.
+
+    Alerts the top ``~alert_share`` of the *current* window's scores by rank,
+    with ties broken deterministically by input index. Re-deriving the choice
+    from the window's own distribution every emission makes the policy
+    scale-free, and rank-based selection keeps a fully degenerate (all-tied or
+    scale-shifted) window from freezing the alert budget to zero *or* blowing
+    past the alert share.
+
+    Returns ``(mask, cutoff, selection)`` where ``mask[i]`` is True for the
+    selected alerts. The alert decision must be by rank (``mask``), never
+    ``score >= cutoff``, because in a tie-degenerate window every score equals
+    the cutoff.
+    """
+    scores = np.asarray(scores, dtype=float)
+    n = int(len(scores))
+    if not 0 <= alert_share <= 1:
+        raise ValueError("alert_share must be between 0 and 1")
+    if n == 0:
+        return np.zeros(0, dtype=bool), None, {
+            "strategy": "per_window_relative_top_k",
+            "alert_share": alert_share,
+            "window_alert_rate": 0.0,
+            "window_selected": 0,
+            "cutoff": None,
+            "n": 0,
+        }
+    k = max(1, min(n, int(np.floor(n * alert_share))))
+    order = np.argsort(-scores, kind="stable")
+    selected_idx = order[:k]
+    mask = np.zeros(n, dtype=bool)
+    mask[selected_idx] = True
+    cutoff = float(scores[selected_idx[-1]])
+    return mask, cutoff, {
+        "strategy": "per_window_relative_top_k",
+        "alert_share": alert_share,
+        "window_alert_rate": float(k / n),
+        "window_selected": k,
+        "cutoff": float(cutoff),
+        "n": n,
+        "mode": RISK_POLICY["alert_mode"],
+        "note": ("Scale-free + rank-based: the top-alert_share is selected "
+                 "from this window's own score distribution at emission time, "
+                 "ties broken by input order. Decisions use the rank mask, "
+                 "never score >= cutoff, so an all-tied window cannot select "
+                 "zero alerts or exceed the share."),
     }
 
 
@@ -424,8 +623,13 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
     else:
         floor_rows = [r for r in budget_rows if r["precision"] >= precision_floor]
         pool = floor_rows or budget_rows
+        # Fall back to the operating point that best approximates the target
+        # under the budget. The last key picks the highest alert rate among
+        # otherwise-identical candidates (<= budget), which keeps an "alert
+        # nobody" sentinel from being chosen: identical (recall, precision,
+        # f1) corners no longer resolve to the threshold above every score.
         chosen = max(pool, key=lambda r: (r["recall"], r["precision"],
-                                          r["f1"], r["threshold"]))
+                                          r["f1"], r["alert_rate"]))
         strategy = ("max_recall_with_precision_floor" if floor_rows
                     else "max_recall_precision_floor_unavailable")
         if max_alert_rate is not None:
@@ -440,6 +644,7 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
         "validation_f1": chosen["f1"],
         "validation_alert_rate": chosen["alert_rate"],
         "max_alert_rate": max_alert_rate,
+        "feasible": chosen["recall"] >= target_recall,
     }
 
 
@@ -640,6 +845,11 @@ def main() -> int:
     ap.add_argument("--precision-floor", type=float, default=MIN_PRECISION_FLOOR)
     ap.add_argument("--max-validation-alert-rate", type=float,
                     default=MAX_REVIEWABLE_ALERT_RATE)
+    ap.add_argument("--threshold-policy",
+                    choices=("top_k", "recall"),
+                    default=DEFAULT_THRESHOLD_POLICY,
+                    help="how the frozen operating threshold is chosen on "
+                         "validation only (default: %(default)s)")
     args = ap.parse_args()
 
     ds = pd.read_parquet(DATASET)
@@ -678,8 +888,13 @@ def main() -> int:
         val_scores = calibrator.predict(val_scores)
         test_scores = calibrator.predict(test_scores)
 
-    threshold, threshold_selection = select_top_k_threshold(
-        val_scores, args.max_validation_alert_rate)
+    if args.threshold_policy == "recall":
+        threshold, threshold_selection = select_recall_threshold(
+            yva, val_scores, args.target_recall, args.precision_floor,
+            args.max_validation_alert_rate)
+    else:
+        threshold, threshold_selection = select_top_k_threshold(
+            val_scores, args.max_validation_alert_rate)
     test_metrics = eval_metrics(yte, test_scores, threshold)
     test_metrics["recall_at_top_k"] = recall_at_top_fraction(yte, test_scores)
 
@@ -816,6 +1031,17 @@ def main() -> int:
             },
         },
         "threshold_selection": threshold_selection,
+        "alert_policy": {
+            "mode": RISK_POLICY["alert_mode"],
+            "alert_share": RISK_POLICY["alert_share"],
+            "description": (
+                "Deployed alerting is scale-free: each forecast window "
+                "alerts its top-alert_share of scores by cutoff re-derived "
+                "from that window's own score distribution. The frozen "
+                "'test_threshold' below is the validation-chosen reference; "
+                "it does not gate deployed alerts."),
+            "reference_threshold": float(threshold),
+        },
         "calibration": calibration,
         "test_threshold": float(threshold),
         "test_metrics": test_metrics,
@@ -842,6 +1068,9 @@ def main() -> int:
             "cv_avg_precision_max": cv.get("pooled_avg_precision_max"),
             "cv_avg_precision_std": cv.get("pooled_avg_precision_std"),
             "cv_n_folds": cv.get("n_folds"),
+            "cv_n_two_class_folds": cv.get("n_two_class_folds"),
+            "cv_two_class_fold_mean_roc_auc": cv.get("two_class_fold_mean_roc_auc"),
+            "cv_two_class_fold_aucs": cv.get("two_class_fold_aucs"),
         },
         "hyperparameters": {**HYPERPARAMS,
                              "early_stopping_rounds": EARLY_STOPPING_ROUNDS},
@@ -898,12 +1127,21 @@ def main() -> int:
     print(comparison["statement"])
     if cv.get("n_folds"):
         fmt = lambda value: f"{value:.3f}" if value is not None else "n/a"
+        n2c = cv.get("n_two_class_folds") or 0
+        mean2c = cv.get("two_class_fold_mean_roc_auc")
         print("Grouped CV: "
-              f"n_folds={cv['n_folds']}, "
-              f"pooled ROC-AUC={fmt(cv['pooled_roc_auc'])} "
-              f"[min {fmt(cv['pooled_roc_auc_min'])} - max {fmt(cv['pooled_roc_auc_max'])}], "
-              f"pooled AP={fmt(cv['pooled_avg_precision'])} "
-              f"[min {fmt(cv['pooled_avg_precision_min'])} - max {fmt(cv['pooled_avg_precision_max'])}]")
+              f"n_folds={cv['n_folds']} (two-class folds={n2c}), "
+              f"two-class fold mean ROC-AUC={fmt(mean2c)} "
+              f"{cv.get('two_class_fold_aucs') or '(fold-undefined elsewhere)'}")
+        if cv.get("pooled_roc_auc") is not None:
+            print("Grouped CV (pooled, single-class folds excluded from "
+                  "per-fold AUC): "
+                  f"pooled ROC-AUC={fmt(cv['pooled_roc_auc'])} "
+                  f"[min {fmt(cv['pooled_roc_auc_min'])} - "
+                  f"max {fmt(cv['pooled_roc_auc_max'])}], "
+                  f"pooled AP={fmt(cv['pooled_avg_precision'])} "
+                  f"[min {fmt(cv['pooled_avg_precision_min'])} - "
+                  f"max {fmt(cv['pooled_avg_precision_max'])}]")
     print("Artifacts written to data/models/")
     return 0
 

@@ -1,0 +1,50 @@
+{
+  "model_version": "2026-09-11_n62_p114",
+  "model_file": "data\\models\\prod_real_temporal_2026-09-11_n62_p114.ubj",
+  "feature_spec": "data\\models\\prod_real_temporal_2026-09-11_n62_p114_features.json",
+  "dataset": "data\\processed\\ml\\real_temporal_risk_dataset.parquet",
+  "dataset_sha256": "0de11a96637a5db9da39707d434ffbcbe96e408134d6e21a72a7f06d2fe01677",
+  "dataset_version": "real_temporal_risk_dataset:0de11a96637a",
+  "feature_version": "72fdf03c26f1f4856ee328e29bb2dc73cad8bef58da1cb8afee233cd0cee9c3b",
+  "model_sha256": "d907dba20dac36d23e043a21227683cfe9b8903c29573bf9d2f05ba5469858e3",
+  "feature_spec_sha256": "58da203ee4f395c802a9e65c1a09cde37b518a4a286ed95cad04918f4dfc2c88",
+  "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+  "production_ready": false,
+  "test_threshold": 0.5,
+  "threshold_selection": "fixed default 0.5 (exploratory CV used 0.5)",
+  "n_samples": 328,
+  "n_confirmed_events": 38,
+  "n_observation_negatives": 24,
+  "n_events": 62,
+  "n_corridors": 10,
+  "n_positives": 114,
+  "n_negatives": 214,
+  "out_of_sample_cv_metrics": {
+    "accuracy": 0.6067,
+    "roc_auc": 0.5553,
+    "avg_precision": 0.3876,
+    "precision": 0.3529,
+    "recall": 0.1579,
+    "f1": 0.2182,
+    "brier_score": 0.2503,
+    "false_negatives": 96,
+    "false_positives": 33,
+    "false_negative_rate": 0.8421,
+    "confusion_matrix": [
+      [
+        181,
+        33
+      ],
+      [
+        96,
+        18
+      ]
+    ],
+    "threshold": 0.5
+  },
+  "cv_note": "grouped leave-one-corridor-out; same evaluator as exploratory",
+  "caveat": "38 confirmed disruption events plus 24 observation-backed negative road-status records (328 samples: 114 positives, 214 negatives) across 10 NH corridors; negatives include assumed-unaffected roads. Grouped leave-one-corridor-out CV: accuracy=0.607, avg_precision=0.388, brier_score=0.250, f1=0.218, false_negative_rate=0.842, false_negatives=96.000, false_positives=33.000, precision=0.353, recall=0.158, roc_auc=0.555. This is a real-data model but NOT a production/deployable hazard classifier; metrics are exploratory and high-variance. Not production-safe.",
+  "not_for": "Production routing, emergency response, or public safety decisions",
+  "trained_on": "2026-09-11",
+  "created_utc": "2026-09-11T22:52:28.053890+05:30"
+}

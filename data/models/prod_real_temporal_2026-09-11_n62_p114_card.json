@@ -1,0 +1,69 @@
+{
+  "name": "ner_real_temporal_risk",
+  "version": "2026-09-11_n62_p114",
+  "framework": "xgboost",
+  "task": "binary disruption prediction (disruption within 7 days)",
+  "created_utc": "2026-09-11T22:52:28.056786+05:30",
+  "training_data": "data\\processed\\ml\\real_temporal_risk_dataset.parquet",
+  "dataset_sha256": "0de11a96637a5db9da39707d434ffbcbe96e408134d6e21a72a7f06d2fe01677",
+  "feature_version": "72fdf03c26f1f4856ee328e29bb2dc73cad8bef58da1cb8afee233cd0cee9c3b",
+  "n_samples": 328,
+  "n_events": 62,
+  "n_confirmed_events": 38,
+  "n_observation_negatives": 24,
+  "n_corridors": 10,
+  "n_positives": 114,
+  "n_negatives": 214,
+  "features": [
+    "rainfall_1day",
+    "rainfall_3day",
+    "rainfall_7day",
+    "rainfall_14day",
+    "rainfall_30day",
+    "rainfall_days_available",
+    "elevation_m",
+    "slope_degrees",
+    "highway_prior",
+    "bridge_flag"
+  ],
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 2,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "eval_metric": "logloss",
+    "random_state": 2026
+  },
+  "out_of_sample_cv_metrics": {
+    "accuracy": 0.6067,
+    "roc_auc": 0.5553,
+    "avg_precision": 0.3876,
+    "precision": 0.3529,
+    "recall": 0.1579,
+    "f1": 0.2182,
+    "brier_score": 0.2503,
+    "false_negatives": 96,
+    "false_positives": 33,
+    "false_negative_rate": 0.8421,
+    "confusion_matrix": [
+      [
+        181,
+        33
+      ],
+      [
+        96,
+        18
+      ]
+    ],
+    "threshold": 0.5
+  },
+  "cv_note": "grouped leave-one-corridor-out; same evaluator as exploratory",
+  "confidence": "LIMITED",
+  "status": "HACKATHON_DEMO_READY_LIMITED_CONFIDENCE",
+  "caveat": "38 confirmed disruption events plus 24 observation-backed negative road-status records (328 samples: 114 positives, 214 negatives) across 10 NH corridors; negatives include assumed-unaffected roads. Grouped leave-one-corridor-out CV: accuracy=0.607, avg_precision=0.388, brier_score=0.250, f1=0.218, false_negative_rate=0.842, false_negatives=96.000, false_positives=33.000, precision=0.353, recall=0.158, roc_auc=0.555. This is a real-data model but NOT a production/deployable hazard classifier; metrics are exploratory and high-variance. Not production-safe.",
+  "model_file": "data\\models\\prod_real_temporal_2026-09-11_n62_p114.ubj",
+  "json_copy": "data\\models\\prod_real_temporal_2026-09-11_n62_p114.json",
+  "feature_spec": "data\\models\\prod_real_temporal_2026-09-11_n62_p114_features.json",
+  "report_file": "data\\models\\prod_report_2026-09-11_n62_p114.json"
+}

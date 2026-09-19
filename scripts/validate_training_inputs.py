@@ -24,7 +24,7 @@ from ml.data.training_gate import (  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path,
-                        default=ROOT / "data/processed/ml/real_temporal_risk_dataset.parquet")
+                        default=ROOT / "data/processed/ml/real_temporal_production_dataset.parquet")
     args = parser.parse_args()
     registry = validate_event_registry()
     negative_file = validate_negative_observation_file()

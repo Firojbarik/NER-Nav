@@ -47,7 +47,8 @@ SUPPORTED_HIGHWAY_TYPES = {
 }
 OPTIONAL_METADATA = {
     "osm_id", "road_segment_id", "latitude", "longitude", "highway",
-    "road_type", "category",
+    "road_type", "category", "highway_prior", "bridge_flag",
+    "rainfall_days_available",
 }
 DERIVED_FEATURES = {
     "terrain_known", "rain_intensity_1_vs_7", "rain_intensity_3_vs_14",
@@ -223,6 +224,24 @@ def validate_and_prepare(values, features, prediction_timestamp,
         errors.append("slope_degrees must be between 0 and 90")
     if elevation is not None and not -500 <= elevation <= 9000:
         errors.append("elevation_m is outside the supported physical range")
+    if errors:
+        raise ValueError("; ".join(errors))
+
+    for name in ("highway_prior", "bridge_flag", "rainfall_days_available"):
+        raw = prepared.get(name)
+        if raw is None:
+            prepared[name] = None
+            continue
+        value = _coerce_numeric(raw)
+        if np.ndim(value) != 0 or not np.isfinite(value):
+            errors.append(f"{name} must be finite or null")
+        elif value < 0:
+            errors.append(f"{name} cannot be negative")
+        else:
+            prepared[name] = float(value)
+    days = prepared.get("rainfall_days_available")
+    if days is not None and not 0 <= days <= 30:
+        errors.append("rainfall_days_available must be between 0 and 30")
     if errors:
         raise ValueError("; ".join(errors))
 

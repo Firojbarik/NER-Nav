@@ -1,0 +1,8 @@
+{
+  "version": "1.1.0",
+  "low_below": 0.4,
+  "high_at_or_above": 0.7,
+  "alert_mode": "per_window_relative_top_k",
+  "alert_share": 0.3,
+  "note": "Business risk bands are separate from the model operating threshold. Deployment alerting uses a scale-free per-window relative top-k share: the cutoff is re-derived from each forecast window's own score distribution, so an absolute shift in the model score scale between windows cannot freeze the alert budget at zero."
+}

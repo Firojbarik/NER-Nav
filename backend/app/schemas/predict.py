@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class BaseFeatures(BaseModel):
@@ -23,6 +25,15 @@ class PredictRequest(BaseModel):
     prediction_timestamp: str | None = Field(
         default=None,
         description="ISO-8601 prediction timestamp; defaults to now (UTC). Must not be in the future.")
+
+    @field_validator("road_segment_id")
+    @classmethod
+    def _validate_road_segment_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if (not normalized or normalized.lower() == "unknown"
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", normalized)):
+            raise ValueError("road_segment_id has an invalid format")
+        return normalized
 
 
 class ModelInfo(BaseModel):
@@ -47,6 +58,7 @@ class PredictResponse(BaseModel):
     operating_decision: str
     operating_threshold: float
     top_contributing_factors: list[dict]
+    explanation_disclaimer: str | None = None
     data_quality: dict
     model: ModelInfo
 

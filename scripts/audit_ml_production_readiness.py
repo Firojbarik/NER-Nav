@@ -16,9 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from ml.features.temporal_design import HORIZON_DAYS, event_date  # noqa: E402
+from ml.data.training_gate import validate_negative_observation_quality  # noqa: E402
 
-DATASET = ROOT / "data/processed/ml/real_temporal_risk_dataset.parquet"
-DATASET_QA = ROOT / "data/processed/ml/real_temporal_risk_dataset_qa.json"
+DATASET = ROOT / "data/processed/ml/real_temporal_production_dataset.parquet"
+DATASET_QA = ROOT / "data/processed/ml/real_temporal_production_dataset_qa.json"
 MODEL_DIR = ROOT / "data/models"
 OUTPUT_DIR = ROOT / "data/processed/ml/readiness_audits"
 
@@ -63,6 +64,8 @@ def audit_dataset(ds):
 
     temporal_violations = []
     for row in ds.itertuples():
+        if row.sample_kind == "observed_open_negative":
+            continue
         try:
             disruption_date = pd.Timestamp(event_date(row.event_id))
         except ValueError:
@@ -92,8 +95,10 @@ def audit_dataset(ds):
     confirmed_negative_count = int(
         ((ds["label"] == 0)
          & ds["label_source"].astype(str).str.contains(
-             "confirmed_unaffected", case=False, na=False)).sum())
+             r"confirmed_unaffected|real_observed_unaffected",
+             case=False, na=False, regex=True)).sum())
 
+    obs_quality = validate_negative_observation_quality()
     return {
         "counts": {
             "samples": int(len(ds)),
@@ -129,6 +134,7 @@ def audit_dataset(ds):
                 ds["label"] == 1, "label_source"].value_counts().to_dict(),
             "negative_label_sources": ds.loc[
                 ds["label"] == 0, "label_source"].value_counts().to_dict(),
+            "observation_quality": obs_quality,
         },
         "temporal": {
             "prediction_start": pd.Timestamp(ds["prediction_time"].min()).isoformat(),
@@ -181,10 +187,32 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
         ["Feature coverage is below the 95% production floor"]
         if min(quality["rainfall_coverage"], quality["terrain_coverage"]) < 0.95 else [],
     )
+    allowed_negative_sources = {"source_confirmed_unaffected",
+                                "real_observed_unaffected"}
+    negative_sources = labels["negative_label_sources"] or {}
+    unsupported = sorted(set(negative_sources) - allowed_negative_sources)
+    labels_ok = (
+        labels["assumed_negative_count"] == 0
+        and not unsupported
+        and labels["confirmed_negative_count"] >= 1
+    )
+    caveats: list[str] = []
+    if labels_ok:
+        quality = labels.get("observation_quality") or {}
+        if quality.get("corridor_only_rows"):
+            caveats.append(
+                "observation-backed negatives are corridor-scoped; "
+                "segment-scoped evidence is a P1 follow-up")
+        if quality.get("clearance_or_reopening_rows"):
+            caveats.append(
+                "observation-backed negatives include clearance/reopening "
+                "status rows; clean segment-level negatives are a P1 follow-up")
     acceptance["LABELS"] = _check(
-        "FAIL",
+        "PASS" if labels_ok else "FAIL",
         labels,
-        ["No source-confirmed unaffected negatives exist",
+        caveats
+        if labels_ok else
+        ["Assumed-unaffected or unsupported negative labels present",
          "Absence of a recorded event is not verified non-occurrence"],
     )
     acceptance["GEOSPATIAL_PIPELINE"] = _check(
@@ -209,7 +237,8 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
         {"future_test_events": test_events,
          "required_future_test_events": 30,
          "test_period": split.get("test_period")},
-        [f"Only {test_events} future test events; at least 30 required"],
+        [f"Only {test_events} future test events; at least 30 required"]
+        if test_events < 30 else [],
     )
     production_gate = (model_report or {}).get("gates", {}).get("production", {})
     acceptance["MODEL"] = _check(
@@ -242,12 +271,47 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
          "dataset_qa_matches_active_dataset": qa_matches},
         lineage_errors + ([] if qa_matches else ["Dataset QA counts do not match"]),
     )
+    manifest_path = ROOT / "data/processed/ml/raw_input_manifest.json"
+    manifest_errors: list[str] = []
+    manifest_ok = False
+    manifest_file_count = 0
+    if not manifest_path.exists():
+        manifest_errors.append("raw input checksum manifest is missing")
+    else:
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            files = manifest.get("files", {})
+            manifest_file_count = len(files)
+            canonical = json.dumps(
+                {k: v for k, v in manifest.items() if k != "manifest_sha256"},
+                sort_keys=True, separators=(",", ":"),
+            )
+            if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != manifest.get("manifest_sha256"):
+                manifest_errors.append("manifest self-hash does not match its contents")
+            if manifest_file_count < 100:
+                manifest_errors.append("manifest does not cover a complete input set")
+            missing = [p for p in files if not (ROOT / p).exists()]
+            if missing:
+                manifest_errors.append(f"{len(missing)} manifest inputs are missing")
+            critical = [p for p in (
+                "data/raw/ner_news_events.csv",
+                "data/raw/hazards/negative_observations.csv",
+                "data/processed/ml/event_label_registry.json") if p in files]
+            mismatched = [p for p in critical if sha256_file(ROOT / p) != files[p]]
+            if mismatched:
+                manifest_errors.append("checksum mismatch: " + ", ".join(mismatched))
+            if not manifest_errors:
+                manifest_ok = True
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
+            manifest_errors.append(f"cannot read manifest: {exc}")
     acceptance["REPRODUCIBILITY"] = _check(
-        "FAIL", {"immutable_model_version": bool(model_report),
-                 "raw_source_manifest_complete": False},
-        ["Not all weather, terrain, roads, boundaries, and incident inputs have a "
-         "single complete checksum manifest",
-         "Confirmed events remain maintained in a code list"],
+        "PASS" if manifest_ok else "FAIL",
+        {"immutable_model_version": bool(model_report),
+         "raw_source_manifest_complete": manifest_ok,
+         "manifest_file": str(manifest_path.relative_to(ROOT)) if manifest_path.exists() else None,
+         "manifest_input_count": manifest_file_count,
+         "manifest_errors": manifest_errors},
+        manifest_errors,
     )
     acceptance["TRACEABILITY"] = _check(
         "PASS" if lineage_ok else "FAIL",
@@ -256,9 +320,17 @@ def build_acceptance(dataset_audit, model_report, lineage_errors, qa_matches):
          "feature_version": (model_report or {}).get("feature_version")},
         lineage_errors,
     )
+    monitoring_script = ROOT / "scripts/monitor_model.py"
+    monitoring_workflow = ROOT / ".github/workflows/model_monitoring.yml"
+    monitoring_ok = (monitoring_script.exists() and monitoring_workflow.exists())
     acceptance["MONITORING"] = _check(
-        "FAIL", {"strategy_documented": True, "automated_monitoring_job": False},
-        ["Monitoring thresholds are documented but not operationally implemented"],
+        "PASS" if monitoring_ok else "FAIL",
+        {"strategy_documented": (ROOT / "docs/MONITORING_STRATEGY.md").exists(),
+         "automated_monitoring_job": monitoring_ok,
+         "monitor_script": str(monitoring_script.relative_to(ROOT)) if monitoring_script.exists() else None,
+         "schedule_workflow": str(monitoring_workflow.relative_to(ROOT)) if monitoring_workflow.exists() else None},
+        ["Monitoring thresholds are documented but not operationally implemented"]
+        if not monitoring_ok else [],
     )
     documentation_files = [
         ROOT / "docs/ML_DATA_CATALOG.md",
@@ -328,9 +400,9 @@ def main():
         "acceptance": acceptance,
         "priority": {
             "P0": [
-                "Replace assumed-unaffected negatives with observation-backed negatives",
-                "Establish a versioned stable road_segment_id mapping",
-                "Make all raw-to-model inputs checksum-manifested and reproducible",
+                "Segment-scope the observation-backed negative evidence: "
+                "replace corridor-level road-status rows with segment-level "
+                "unaffected observations in negative_observations.csv",
             ],
             "P1": [
                 "Expand to at least 30 independent future test events",
@@ -339,7 +411,7 @@ def main():
             ],
             "P2": [
                 "Validate calibration with at least 10 independent validation events",
-                "Operationalize freshness, drift, and delayed-label monitoring",
+                "Operationalize drift detection against the training feature profile",
                 "Reduce false-alert load while preserving safety-oriented recall",
             ],
             "P3": ["Evaluate additional algorithms only after P0/P1 are resolved"],

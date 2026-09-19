@@ -226,6 +226,72 @@ class TestProductionGate(unittest.TestCase):
         self.assertEqual(details["validation_selected"], 3)
         self.assertLessEqual((scores >= threshold).mean(), 0.30)
 
+    def test_infeasible_recall_falls_back_without_alert_nobody_sentinel(self):
+        m = _import_harness()
+        # Positives score below the entire alert budget, so no operating point
+        # can meet target recall or the precision floor. The policy must return
+        # the budget-boundary operating point (alert_rate > 0), never the
+        # "alert nobody" threshold above every score, and flag infeasibility.
+        y = np.array([0, 0, 0, 0, 1, 1, 0, 0])
+        scores = np.array([0.90, 0.85, 0.80, 0.70, 0.40, 0.35, 0.20, 0.10])
+        threshold, details = m.select_recall_threshold(
+            y, scores, target_recall=0.70, precision_floor=0.30,
+            max_alert_rate=0.30)
+        self.assertLess(threshold, scores.max())
+        self.assertGreater(details["validation_alert_rate"], 0.0)
+        self.assertLessEqual(details["validation_alert_rate"], 0.30)
+        self.assertIs(details["feasible"], False)
+        self.assertEqual(details["strategy"],
+                         "max_recall_precision_floor_unavailable_with_alert_budget")
+
+    def test_per_window_top_k_alerts_fixed_share_regardless_of_scale(self):
+        m = _import_harness()
+        # A shifted scale (below any frozen reference threshold) must still
+        # emit the same top-alert_share of alerts, because the cutoff is
+        # re-derived from the current window's own distribution.
+        low = np.array([0.4964, 0.4971, 0.4990, 0.4993, 0.4980,
+                        0.5001, 0.5014, 0.5020, 0.5021, 0.5025])
+        mask, cutoff, details = m.per_window_top_k(low, 0.30)
+        self.assertEqual(details["window_selected"], 3)
+        self.assertEqual(mask.sum(), 3)
+        self.assertLessEqual(details["window_alert_rate"], 0.30)
+        # the three highest scores are selected, in rank order
+        self.assertEqual(np.where(mask)[0].tolist(), [7, 8, 9])
+
+    def test_per_window_top_k_full_tie_window_still_alerts(self):
+        m = _import_harness()
+        # A fully degenerate window (the exact failure mode that froze the
+        # old frozen-threshold policy to zero alerts) must still alert the
+        # top share, ties broken by input order.
+        scores = np.full(12, 0.5036)
+        mask, cutoff, details = m.per_window_top_k(scores, 0.30)
+        self.assertEqual(mask.sum(), 3, "tie window must not freeze alerts")
+        self.assertLessEqual(details["window_alert_rate"], 0.30)
+        self.assertEqual(np.where(mask)[0].tolist(),
+                         [0, 1, 2])
+
+    def test_per_window_top_k_decision_is_by_rank_not_cutoff_value(self):
+        m = _import_harness()
+        # Even when the window is tie-degenerate (cutoff == every score),
+        # decisions use the rank mask so selection is exactly the top share.
+        scores = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+        mask, cutoff, details = m.per_window_top_k(scores, 0.30)
+        self.assertEqual(cutoff, 0.5)
+        self.assertEqual(mask.sum(), 3)
+        self.assertEqual(np.where(mask)[0].tolist(), [0, 1, 2])
+
+    def test_per_window_top_k_empty_window(self):
+        m = _import_harness()
+        mask, cutoff, details = m.per_window_top_k(np.array([]), 0.30)
+        self.assertEqual(len(mask), 0)
+        self.assertIsNone(cutoff)
+        self.assertEqual(details["window_selected"], 0)
+
+    def test_per_window_top_k_rejects_bad_share(self):
+        m = _import_harness()
+        with self.assertRaises(ValueError):
+            m.per_window_top_k(np.array([0.5, 0.6]), 1.2)
+
     def test_caveat_uses_dataframe_counts(self):
         m = _import_harness()
         ds = pd.DataFrame({
