@@ -57,11 +57,24 @@ HYPERPARAMS = dict(n_estimators=300, max_depth=1, learning_rate=0.03,
                    eval_metric="logloss", random_state=2026)
 EARLY_STOPPING_ROUNDS = 20
 
+# Class-imbalance handling for the bootstrap learner. "auto" derives
+# scale_pos_weight = n_neg / n_pos from the TRAINING labels each fit (a loss
+# weighting only - it never fabricates labels). A numeric value overrides it;
+# "none" restores the legacy unweighted behavior. Applied in fit_xgb_model so
+# both the single hold-out and grouped-CV paths stay consistent.
+CLASS_BALANCE_MODE = "auto"
+
 MAX_GENERALIZATION_GAP = 0.20
 
 TARGET_RECALL = 0.70
 MIN_PRECISION_FLOOR = 0.30
 MAX_REVIEWABLE_ALERT_RATE = 0.30
+
+# Operating-point policy for the frozen model threshold.
+#   "recall" -> label-aware recall targeting on validation only (production-
+#               ready default; targets TARGET_RECALL with MIN_PRECISION_FLOOR).
+#   "top_k"  -> label-free top-k alert budget (legacy demo behavior).
+DEFAULT_THRESHOLD_POLICY = "recall"
 
 DEMO_MIN_TEST_EVENTS = 3
 DEMO_MIN_ROC_AUC = 0.65
@@ -151,10 +164,35 @@ def training_feature_profile(X):
     return profile
 
 
-def fit_xgb_model(X_train, y_train, X_validation, y_validation):
-    """Fit the bounded learner with validation-only early stopping."""
+def fit_xgb_model(X_train, y_train, X_validation, y_validation,
+                  class_balance_mode=CLASS_BALANCE_MODE):
+    """Fit the bounded learner with validation-only early stopping.
+
+    ``class_balance_mode`` controls XGBoost ``scale_pos_weight``:
+
+    - ``"auto"``  -> n_neg / n_pos computed from the training labels.
+    - numeric    -> used verbatim as an explicit override.
+    - ``"none"`` -> legacy unweighted behavior (no balance correction).
+
+    The override is validated so a mistyped constant fails loudly instead of
+    silently training an unbalanced model.
+    """
+    params = dict(HYPERPARAMS)
+    if class_balance_mode == "auto":
+        n_pos = int(np.sum(np.asarray(y_train, dtype=int) == 1))
+        n_neg = int(np.sum(np.asarray(y_train, dtype=int) == 0))
+        if n_pos > 0 and n_neg > 0:
+            params["scale_pos_weight"] = n_neg / n_pos
+    elif class_balance_mode != "none":
+        if not (isinstance(class_balance_mode, (int, float))
+                and np.isfinite(class_balance_mode) and class_balance_mode > 0):
+            raise ValueError(
+                "class_balance_mode must be 'auto', 'none', or a positive number; "
+                f"got {class_balance_mode!r}")
+        params["scale_pos_weight"] = float(class_balance_mode)
+
     model = xgb.XGBClassifier(
-        **HYPERPARAMS, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+        **params, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
     model.fit(X_train, y_train,
               eval_set=[(X_validation, y_validation)], verbose=False)
     return model
@@ -640,6 +678,11 @@ def main() -> int:
     ap.add_argument("--precision-floor", type=float, default=MIN_PRECISION_FLOOR)
     ap.add_argument("--max-validation-alert-rate", type=float,
                     default=MAX_REVIEWABLE_ALERT_RATE)
+    ap.add_argument("--threshold-policy",
+                    choices=("top_k", "recall"),
+                    default=DEFAULT_THRESHOLD_POLICY,
+                    help="how the frozen operating threshold is chosen on "
+                         "validation only (default: %(default)s)")
     args = ap.parse_args()
 
     ds = pd.read_parquet(DATASET)
@@ -678,8 +721,13 @@ def main() -> int:
         val_scores = calibrator.predict(val_scores)
         test_scores = calibrator.predict(test_scores)
 
-    threshold, threshold_selection = select_top_k_threshold(
-        val_scores, args.max_validation_alert_rate)
+    if args.threshold_policy == "recall":
+        threshold, threshold_selection = select_recall_threshold(
+            yva, val_scores, args.target_recall, args.precision_floor,
+            args.max_validation_alert_rate)
+    else:
+        threshold, threshold_selection = select_top_k_threshold(
+            val_scores, args.max_validation_alert_rate)
     test_metrics = eval_metrics(yte, test_scores, threshold)
     test_metrics["recall_at_top_k"] = recall_at_top_fraction(yte, test_scores)
 
