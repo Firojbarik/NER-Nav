@@ -226,6 +226,24 @@ class TestProductionGate(unittest.TestCase):
         self.assertEqual(details["validation_selected"], 3)
         self.assertLessEqual((scores >= threshold).mean(), 0.30)
 
+    def test_infeasible_recall_falls_back_without_alert_nobody_sentinel(self):
+        m = _import_harness()
+        # Positives score below the entire alert budget, so no operating point
+        # can meet target recall or the precision floor. The policy must return
+        # the budget-boundary operating point (alert_rate > 0), never the
+        # "alert nobody" threshold above every score, and flag infeasibility.
+        y = np.array([0, 0, 0, 0, 1, 1, 0, 0])
+        scores = np.array([0.90, 0.85, 0.80, 0.70, 0.40, 0.35, 0.20, 0.10])
+        threshold, details = m.select_recall_threshold(
+            y, scores, target_recall=0.70, precision_floor=0.30,
+            max_alert_rate=0.30)
+        self.assertLess(threshold, scores.max())
+        self.assertGreater(details["validation_alert_rate"], 0.0)
+        self.assertLessEqual(details["validation_alert_rate"], 0.30)
+        self.assertIs(details["feasible"], False)
+        self.assertEqual(details["strategy"],
+                         "max_recall_precision_floor_unavailable_with_alert_budget")
+
     def test_caveat_uses_dataframe_counts(self):
         m = _import_harness()
         ds = pd.DataFrame({

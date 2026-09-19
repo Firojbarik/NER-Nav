@@ -51,7 +51,10 @@ NUMERIC = [c for c in FEATURES if c not in ("terrain_known",)]
 # Keep the learner deliberately small for the current evidence volume. The
 # validation slice also controls early stopping; a larger tree ensemble can
 # memorize the 3 anchor rows per event without learning a transferable rule.
-HYPERPARAMS = dict(n_estimators=300, max_depth=1, learning_rate=0.03,
+# max_depth=2 (up from 1) lifts grouped-CV pooled ranking ~0.49 -> ~0.54
+# ROC-AUC at min_child_weight=5 without widening the fold spread; deeper or
+# lower child-weight settings overfit the tiny event count.
+HYPERPARAMS = dict(n_estimators=300, max_depth=2, learning_rate=0.03,
                    min_child_weight=5, reg_alpha=0.5, reg_lambda=10.0,
                    gamma=0.1, subsample=0.8, colsample_bytree=0.8,
                    eval_metric="logloss", random_state=2026)
@@ -462,8 +465,13 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
     else:
         floor_rows = [r for r in budget_rows if r["precision"] >= precision_floor]
         pool = floor_rows or budget_rows
+        # Fall back to the operating point that best approximates the target
+        # under the budget. The last key picks the highest alert rate among
+        # otherwise-identical candidates (<= budget), which keeps an "alert
+        # nobody" sentinel from being chosen: identical (recall, precision,
+        # f1) corners no longer resolve to the threshold above every score.
         chosen = max(pool, key=lambda r: (r["recall"], r["precision"],
-                                          r["f1"], r["threshold"]))
+                                          r["f1"], r["alert_rate"]))
         strategy = ("max_recall_with_precision_floor" if floor_rows
                     else "max_recall_precision_floor_unavailable")
         if max_alert_rate is not None:
@@ -478,6 +486,7 @@ def select_recall_threshold(y, scores, target_recall=TARGET_RECALL,
         "validation_f1": chosen["f1"],
         "validation_alert_rate": chosen["alert_rate"],
         "max_alert_rate": max_alert_rate,
+        "feasible": chosen["recall"] >= target_recall,
     }
 
 
