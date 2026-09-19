@@ -183,7 +183,7 @@ class TestReadinessAudit(unittest.TestCase):
         ds = pd.read_parquet(audit.DATASET)
         result = audit.audit_dataset(ds)
         self.assertEqual(result["labels"]["assumed_negative_count"], 0)
-        self.assertEqual(result["labels"]["confirmed_negative_count"], 25)
+        self.assertEqual(result["labels"]["confirmed_negative_count"], 75)
         self.assertEqual(result["quality"]["duplicate_sample_keys"], 0)
 
 
