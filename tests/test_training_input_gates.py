@@ -50,7 +50,7 @@ class TestTrainingInputGates(unittest.TestCase):
         result = validate_negative_observation_quality()
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(result["segment_level_rows"], 1)
-        self.assertEqual(result["corridor_only_rows"], 74)
+        self.assertEqual(result["corridor_only_rows"], 99)
         self.assertGreater(result["clearance_or_reopening_rows"], 0)
 
 

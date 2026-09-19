@@ -63,6 +63,8 @@ NH10_OSM = 879401691      # NH-10 (Bardang/Rangpo stretch)
 NH510_OSM = 44848726      # NH-510 (Gyalshing Sub-Division)
 NAMCHI_MANPUR_OSM = 1268716500  # Namchi-Manpur Road bridge of Namchi SD
 NH37_OSM = 44884968       # NH-37 (Noney/Awangkhul, Imphal-Jiribam corridor)
+SH19_OSM = 44848719       # SH-19 Jorethang-Kitam corridor (mid-chain SH way)
+SH20_OSM = 423300896      # SH-20 Jorethang-Namchi corridor (full 19.4km tertiary)
 
 
 def sitrep(date_iso: str, slug: str, label: str, ref: str, osm: int,
@@ -108,6 +110,40 @@ OBSERVATIONS = [
            ["Assam Pakyong road", "the road is trafficable"],
            "NH-717A Pakyong SD; formation damaged but trafficable (explicit)",
            "corridor_named_road_sitrep"),
+    # --- SH-19 "Kitam fatak to Jorethang road" (ABD) ------------------------- #
+    sitrep("2024-09-11", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road",
+           "SH19", SH19_OSM,
+           ["Kitam fatak to Joerthang road is open as of now (SH-19)"],
+           "road under ABD, SH-19, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-27", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road",
+           "SH19", SH19_OSM,
+           ["Kitam fatak to Joerthang road is open as of now (SH-19)"],
+           "road under ABD, SH-19, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-23", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road",
+           "SH19", SH19_OSM,
+           ["Kitam fatak to Joerthang road is open as of now (SH-19)"],
+           "road under ABD, SH-19, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-02", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road",
+           "SH19", SH19_OSM,
+           ["Kitam fatak to Joerthang road is open as of now (SH-19)"],
+           "road under ABD, SH-19, Jorethang SD", "corridor_named_road_sitrep"),
+    # --- SH-20 "Jorethang to Namchi road" (ABD) ------------------------------ #
+    sitrep("2024-09-11", "jorethang_namchi", "Jorethang to Namchi road",
+           "SH20", SH20_OSM,
+           ["road is open as of now (SH-20)"],
+           "road under ABD, SH-20, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-27", "jorethang_namchi", "Jorethang to Namchi road",
+           "SH20", SH20_OSM,
+           ["road is open as of now (SH-20)"],
+           "road under ABD, SH-20, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-23", "jorethang_namchi", "Jorethang to Namchi road",
+           "SH20", SH20_OSM,
+           ["road is open as of now (SH-20)"],
+           "road under ABD, SH-20, Jorethang SD", "corridor_named_road_sitrep"),
+    sitrep("2024-08-02", "jorethang_namchi", "Jorethang to Namchi road",
+           "SH20", SH20_OSM,
+           ["road is open as of now (SH-20)"],
+           "road under ABD, SH-20, Jorethang SD", "corridor_named_road_sitrep"),
 ]
 
 
@@ -229,8 +265,63 @@ DIVISION_OBSERVATIONS = [
              ["All the roads under Namchi Sub Division are open except Phongla Bermiok road"],
              "Bermiok excluded; Namchi-Manpur covered"),
     sd_entry("2024-08-02", "namchi_manpur", "Namchi-Manpur Road", NAMCHI_MANPUR_OSM,
-             ["All the roads under Namchi Sub Division are open except Phongla Bermiok road"],
-             "Bermiok excluded; Namchi-Manpur covered"),
+              ["All the roads under Namchi Sub Division are open except Phongla Bermiok road"],
+              "Bermiok excluded; Namchi-Manpur covered"),
+    # --- Jorethang SD -> SH-19 / SH-20 trunk corridors --------------------- #
+    # Jorethang SD division line: corridor's ABD roads (SH-19 Kitam fatak-
+    # Jorethang, SH-20 Jorethang-Namchi) are the SD trunk.  2024 dates are not
+    # re-added here because the named-road ABD rows above already cover them.
+    sd_entry("2025-06-25", "sh19", "SH19", SH19_OSM,
+             ["All the road under Jorethang sub division is trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line (TEST window)"),
+    sd_entry("2025-06-25", "sh20", "SH20", SH20_OSM,
+             ["All the road under Jorethang sub division is trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line (TEST window)"),
+    sd_entry("2025-06-19", "sh19", "SH19", SH19_OSM,
+             ["All the road under Jorethang sub division is trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line; SH-20 is blocked on this date so it is skipped"),
+    sd_entry("2025-06-10", "sh19", "SH19", SH19_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-06-10", "sh20", "SH20", SH20_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-26", "sh19", "SH19", SH19_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-26", "sh20", "SH20", SH20_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-23", "sh19", "SH19", SH19_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-23", "sh20", "SH20", SH20_OSM,
+             ["All the road under Jorethang sub division are trafficable as of now except some of F.W.R."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-21", "sh19", "SH19", SH19_OSM,
+             ["All roads under Jorethang Sub Divsion are trafficable as of now except some FWR."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-21", "sh20", "SH20", SH20_OSM,
+             ["All roads under Jorethang Sub Divsion are trafficable as of now except some FWR."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-19", "sh19", "SH19", SH19_OSM,
+             ["All roads under Jorethang Sub Divsion are trafficable as of now except some FWRs."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-19", "sh20", "SH20", SH20_OSM,
+             ["All roads under Jorethang Sub Divsion are trafficable as of now except some FWRs."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-17", "sh19", "SH19", SH19_OSM,
+             ["All road under Jorethang sub division is trafficable except some FWRs."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-17", "sh20", "SH20", SH20_OSM,
+             ["All road under Jorethang sub division is trafficable except some FWRs."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-15", "sh19", "SH19", SH19_OSM,
+             ["All road under Jorethang sub division is trafficable except some FWRs."],
+             "Jorethang SD open line"),
+    sd_entry("2025-05-15", "sh20", "SH20", SH20_OSM,
+             ["All road under Jorethang sub division is trafficable except some FWRs."],
+             "Jorethang SD open line"),
 ]
 
 # --------------------------------------------------------------------------- #
@@ -248,24 +339,7 @@ PRESS_OBSERVATIONS = [
 # --------------------------------------------------------------------------- #
 # 4. Ref-roads not yet in the road base (kept pending; never emitted).
 # --------------------------------------------------------------------------- #
-PENDING_OBSERVATIONS = [
-    ("2024-08-02", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road", "SH19",
-     "Kitam fatak to Joerthang road is open as of now (SH-19)", "road under ABD, SH-19"),
-    ("2024-08-23", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road", "SH19",
-     "Kitam fatak to Joerthang road is open as of now (SH-19)", "road under ABD, SH-19"),
-    ("2024-08-27", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road", "SH19",
-     "Kitam fatak to Joerthang road is open as of now (SH-19)", "road under ABD, SH-19"),
-    ("2024-09-11", "kitam_fatak_jorethang", "Kitam fatak to Jorethang road", "SH19",
-     "Kitam fatak to Joerthang road is open as of now (SH-19)", "road under ABD, SH-19"),
-    ("2024-08-02", "jorethang_namchi", "Jorethang to Namchi road", "SH20",
-     "is open as of now (SH-20)", "road under ABD, SH-20"),
-    ("2024-08-23", "jorethang_namchi", "Jorethang to Namchi road", "SH20",
-     "is open as of now (SH-20)", "road under ABD, SH-20"),
-    ("2024-08-27", "jorethang_namchi", "Jorethang to Namchi road", "SH20",
-     "is open as of now (SH-20)", "road under ABD, SH-20"),
-    ("2024-09-11", "jorethang_namchi", "Jorethang to Namchi road", "SH20",
-     "is open as of now (SH-20)", "road under ABD, SH-20"),
-]
+PENDING_OBSERVATIONS = []
 
 MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july",

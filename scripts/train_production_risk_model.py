@@ -54,11 +54,42 @@ NUMERIC = [c for c in FEATURES if c not in ("terrain_known",)]
 # max_depth=2 (up from 1) lifts grouped-CV pooled ranking ~0.49 -> ~0.54
 # ROC-AUC at min_child_weight=5 without widening the fold spread; deeper or
 # lower child-weight settings overfit the tiny event count.
-HYPERPARAMS = dict(n_estimators=300, max_depth=2, learning_rate=0.03,
+HYPERPARAMS = dict(n_estimators=200, max_depth=2, learning_rate=0.03,
                    min_child_weight=5, reg_alpha=0.5, reg_lambda=10.0,
                    gamma=0.1, subsample=0.8, colsample_bytree=0.8,
-                   eval_metric="logloss", random_state=2026)
+                   eval_metric="auc", random_state=2026)
 EARLY_STOPPING_ROUNDS = 20
+# With only a handful of positive validation rows the validation ROC-AUC used
+# by early stopping is dominated by noise, so early stopping can pick a
+# near-stump ensemble that generalizes worse than the bounded full ensemble
+# (the base learner is deliberately small: max_depth=2, reg_lambda=10,
+# min_child_weight=5). Until validation carries enough positives to support a
+# stable ranking decision, train the regularized full ensemble instead. The
+# bootstrap ensemble is still bounded by the regularizer, only the extra
+# variance of a lucky stopping iteration is removed.
+MIN_VALIDATION_POSITIVES_FOR_EARLY_STOP = 5
+
+# XGBoost monotone constraints: heavier rainfall / stronger cumulative
+# monsoon drivers must never reduce modeled risk. This is a domain statement
+# (more water-into-slope means more disruption), not a test-fit choice, and
+# it keeps the tiny bootstrap ensembles from learning spurious inverse
+# rainfall patterns on a handful of rows. Keys are feature names, so
+# fit_xgb_model wraps its numeric matrices in a labeled frame before fitting.
+MONOTONE_CONSTRAINTS = {
+    "rainfall_1day": 1,
+    "rainfall_3day": 1,
+    "rainfall_7day": 1,
+    "rainfall_14day": 1,
+    "rainfall_30day": 1,
+    "rain_intensity_1_vs_7": 1,
+    "rain_intensity_3_vs_14": 1,
+    "rain_concentration_3_in_7": 1,
+    "rain_trend_1_vs_3": 1,
+    "rain_cumul_ratio_7_vs_30": 1,
+    "slope_x_rain7": 1,
+    "slope_x_rain30": 1,
+    "days_into_monsoon": 1,
+}
 
 # Class-imbalance handling for the bootstrap learner. "auto" derives
 # scale_pos_weight = n_neg / n_pos from the TRAINING labels each fit (a loss
@@ -201,10 +232,36 @@ def fit_xgb_model(X_train, y_train, X_validation, y_validation,
                 f"got {class_balance_mode!r}")
         params["scale_pos_weight"] = float(class_balance_mode)
 
-    model = xgb.XGBClassifier(
-        **params, early_stopping_rounds=EARLY_STOPPING_ROUNDS)
-    model.fit(X_train, y_train,
-              eval_set=[(X_validation, y_validation)], verbose=False)
+    if MONOTONE_CONSTRAINTS:
+        # XGBoost validates monotone constraints against named features, so
+        # wrap the numeric matrices in a labeled frame (FEATURES is ordered
+        # identically by both callers).
+        params["monotone_constraints"] = {
+            f: MONOTONE_CONSTRAINTS[f] for f in FEATURES
+            if f in MONOTONE_CONSTRAINTS}
+        def framed(X):
+            return pd.DataFrame(np.asarray(X, dtype=float), columns=FEATURES)
+        X_train = framed(X_train)
+        X_validation = framed(X_validation)
+
+    model = xgb.XGBClassifier(**params)
+    val_classes = set(np.asarray(y_validation, dtype=int))
+    n_val_pos = int(np.sum(np.asarray(y_validation, dtype=int) == 1))
+    if val_classes in ({0}, {1}) or n_val_pos < MIN_VALIDATION_POSITIVES_FOR_EARLY_STOP:
+        # Single-class validation carries no ranking signal for early
+        # stopping, and validation with fewer positives than the reliability
+        # floor is too noisy an early-stopping target (see the constant
+        # docstring). In both cases XGBoost can collapse to best_iteration=0
+        # or stop on a lucky iteration and emit near-constant probabilities;
+        # train the bounded full ensemble instead so a degenerate validation
+        # slice cannot silently corrupt the learner. The production
+        # split_by_events guarantees a two-class slice; this also guards the
+        # grouped-CV folds and any caller passing a degenerate slice.
+        model.fit(X_train, y_train, verbose=False)
+    else:
+        model.set_params(early_stopping_rounds=EARLY_STOPPING_ROUNDS)
+        model.fit(X_train, y_train,
+                  eval_set=[(X_validation, y_validation)], verbose=False)
     return model
 
 
@@ -229,7 +286,11 @@ def split_by_events(ds, n_val_events=DEFAULT_VALIDATION_EVENTS,
     
     Events are grouped by their minimum prediction_time to ensure events
     with tied dates stay together in the same chronological split.
-    Split boundaries are adjusted to respect group boundaries.
+    Split boundaries are adjusted to respect group boundaries. When the
+    count-based validation window is single-class, it is expanded backward
+    one whole event group at a time until it contains both classes, so
+    early stopping and recall-threshold tuning always have a ranking
+    signal. The test boundary is never moved by this expansion.
     """
     event_min_time = ds.groupby("event_id")["prediction_time"].min()
     
@@ -256,8 +317,32 @@ def split_by_events(ds, n_val_events=DEFAULT_VALIDATION_EVENTS,
     val_start_idx = next((i for i, c in enumerate(cum_sizes) if c > val_start_idx), 0)
     val_start_idx = cum_sizes[val_start_idx - 1] if val_start_idx > 0 else 0
     
+    # Guarantee the validation slice is two-class so early stopping and
+    # recall-threshold tuning have a ranking signal. A single-class
+    # validation set would let XGBoost's early stopping collapse to
+    # best_iteration=0 (near-constant predictions). Walk the validation
+    # start backward over whole event groups (chronology and event
+    # disjointness preserved; the test boundary is untouched) until
+    # validation holds both classes, then fail closed if that is impossible.
+    def _classes(ids):
+        return set(ds[ds["event_id"].isin(ids)]["label"].dropna().astype(int))
+
     train_ids = event_order[:val_start_idx]
     val_ids = event_order[val_start_idx:test_start_idx]
+
+    guard = 0
+    while _classes(val_ids) != {0, 1} and val_start_idx > 0 and guard < len(group_sizes):
+        guard += 1
+        val_start_idx = int(max((c for c in cum_sizes if c < val_start_idx),
+                                default=0))
+        train_ids = event_order[:val_start_idx]
+        val_ids = event_order[val_start_idx:test_start_idx]
+    if _classes(val_ids) != {0, 1}:
+        raise ValueError(
+            "chronological validation slice cannot be expanded to two "
+            "classes; add source-backed observations around the split "
+            "boundary before training")
+
     test_ids = event_order[test_start_idx:]
 
     def grab(ids):
